@@ -23,7 +23,10 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 				html.push('</div>');
 			}
 			html.push('<div class="month-block">');
-			html.push('<div class="month-divider">' + dayInfo.date.monthName(lang) + '</div>');
+			// January also shows its year ("January 2027") so a new year is obvious when scrolling
+			html.push('<div class="month-divider">' + (dayInfo.date.getMonth() == 0
+				? dayInfo.date.toLocaleDateString(lang, {month: 'long', year: 'numeric'})
+				: dayInfo.date.monthName(lang)) + '</div>');
 			monthOpen = true;
 		}
 
