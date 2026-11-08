@@ -54,6 +54,7 @@
 	<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
 	<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
 	<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+	<symbol id="i-wide" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
 	<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
 	<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
 	<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -194,6 +195,11 @@
 	<section class="sheet-panel sheet-panel-lg reading-modal-panel" role="dialog" aria-modal="true" aria-labelledby="reading-modal-title">
 		<header class="reading-head">
 			<h2 id="reading-modal-title">Reading</h2>
+			<div class="reader-tools" role="group" aria-label="Text settings">
+				<button type="button" class="icon-btn reader-size" data-reader="smaller" aria-label="Smaller text"><span class="glyph-sm" aria-hidden="true">A</span></button>
+				<button type="button" class="icon-btn reader-size" data-reader="larger" aria-label="Larger text"><span class="glyph-lg" aria-hidden="true">A</span></button>
+				<button type="button" class="icon-btn reader-wide" data-reader="wide" aria-pressed="false" aria-label="Wide layout"><svg class="icon"><use href="#i-wide"/></svg></button>
+			</div>
 			<a id="reading-modal-link" class="btn btn-quiet" href="#" target="_blank" rel="noopener"><svg class="icon"><use href="#i-external"/></svg><span>Open</span></a>
 			<button type="button" class="icon-btn" id="reading-modal-close" aria-label="Close reading" data-reading-close><svg class="icon"><use href="#i-close"/></svg></button>
 		</header>

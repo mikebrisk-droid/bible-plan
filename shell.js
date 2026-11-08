@@ -1113,6 +1113,45 @@
 		}
 	}
 
+	/* ---------- Reader text settings ---------- */
+
+	var READER_SIZES = [15, 17, 19, 21, 24, 28];
+	var READER_KEY = 'rtb-reader';
+
+	function bindReaderTools() {
+		var prefs = store.get(READER_KEY) || {};
+		var size = READER_SIZES.indexOf(prefs.size) > -1 ? prefs.size : 19;
+		var wide = !!prefs.wide;
+		var content = $q('#reading-modal-content'), panel = $q('.reading-modal-panel');
+
+		function apply(keepPlace) {
+			// keep the reader on the same spot in the passage while text reflows
+			var ratio = keepPlace && panel.scrollHeight > panel.clientHeight ? panel.scrollTop / (panel.scrollHeight - panel.clientHeight) : null;
+			content.style.setProperty('--reader-size', size + 'px');
+			panel.classList.toggle('is-wide', wide);
+			$q('[data-reader="smaller"]').disabled = size === READER_SIZES[0];
+			$q('[data-reader="larger"]').disabled = size === READER_SIZES[READER_SIZES.length - 1];
+			$q('[data-reader="wide"]').setAttribute('aria-pressed', String(wide));
+			store.set(READER_KEY, { size: size, wide: wide });
+			if (ratio !== null) {
+				requestAnimationFrame(function () { panel.scrollTop = ratio * (panel.scrollHeight - panel.clientHeight); });
+			}
+		}
+
+		$q('.reader-tools').addEventListener('click', function (e) {
+			var t = e.target.closest('[data-reader]');
+			if (!t) return;
+			var i = READER_SIZES.indexOf(size);
+			if (t.dataset.reader === 'smaller' && i > 0) size = READER_SIZES[i - 1];
+			if (t.dataset.reader === 'larger' && i < READER_SIZES.length - 1) size = READER_SIZES[i + 1];
+			if (t.dataset.reader === 'wide') wide = !wide;
+			apply(true);
+			if (motionOK) g.fromTo(t, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' });
+		});
+
+		apply(false);
+	}
+
 	/* ---------- Back to top ---------- */
 
 	function bindBackToTop() {
@@ -1268,6 +1307,7 @@
 		mountDisplayControls();
 		buildLens();
 		bindBackToTop();
+		bindReaderTools();
 		bindBuilder();
 		bindEvents();
 
