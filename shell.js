@@ -652,6 +652,12 @@
 	}
 
 	var LAYOUT_ART = {
+		matrix: '<rect x="6" y="8" width="36" height="26" rx="3"/><path d="M6 15h36M6 21.5h36M6 28h36M17 8v26"/><path d="M22 11.5h8M22 18h14M22 24.5h10M22 31h12"/>',
+		sections: '<path d="M8 10h12M8 15h20M8 19h16M8 26h12M8 31h18"/><circle cx="36" cy="12" r="3"/><circle cx="36" cy="28" r="3"/>',
+		progress: '<path d="M8 12h10M8 21h10M8 30h10"/><rect x="22" y="10" width="20" height="4" rx="2"/><rect x="22" y="19" width="14" height="4" rx="2"/><rect x="22" y="28" width="8" height="4" rx="2"/>',
+		board: '<rect x="5" y="8" width="11" height="26" rx="2.5"/><rect x="18.5" y="8" width="11" height="26" rx="2.5"/><rect x="32" y="8" width="11" height="26" rx="2.5"/><path d="M8 13h5M8 18h5M21.5 13h5M35 13h5M35 18h5M35 23h5"/>',
+		weekrows: '<rect x="6" y="8" width="36" height="26" rx="3"/><path d="M6 16.5h36M6 25h36M15 8v26"/><path d="M19 12.3h4M26 12.3h4M33 12.3h4M19 20.8h4M26 20.8h4M19 29.3h4"/>',
+		habit: '<rect x="6" y="8" width="7" height="7" rx="2"/><rect x="16" y="8" width="7" height="7" rx="2"/><rect x="26" y="8" width="7" height="7" rx="2"/><rect x="36" y="8" width="7" height="7" rx="2"/><rect x="6" y="18" width="7" height="7" rx="2"/><rect x="16" y="18" width="7" height="7" rx="2"/><rect x="26" y="18" width="7" height="7" rx="2"/><rect x="6" y="28" width="7" height="7" rx="2"/><rect x="16" y="28" width="7" height="7" rx="2"/><path d="m27.5 21.5 1.5 1.5 3-3"/>',
 		calendar: '<rect x="6" y="8" width="36" height="26" rx="3"/><path d="M6 15h36M18 15v19M30 15v19M6 24.5h36"/>',
 		list: '<path d="M8 11h4M16 11h24M8 19h4M16 19h20M8 27h4M16 27h22"/>',
 		weeks: '<rect x="6" y="8" width="16" height="26" rx="3"/><rect x="26" y="8" width="16" height="26" rx="3"/><path d="M10 15h8M10 21h8M10 27h6M30 15h8M30 21h8M30 27h6"/>',
@@ -661,7 +667,10 @@
 	};
 	// The wheel layouts (circle, circlecal) are hidden for now; plans that use them open in Calendar
 	var HIDDEN_FORMATS = ['circle', 'circlecal'];
-	var LAYOUTS = [['calendar', 'Calendar'], ['list', 'List'], ['weeks', 'Weeks'], ['books', 'Books']];
+	var LAYOUTS = [['calendar', 'Calendar'], ['list', 'List'], ['weeks', 'Weeks'], ['books', 'Books'],
+		['matrix', 'Matrix'], ['sections', 'Sections'], ['progress', 'Progress'], ['board', 'Board'], ['weekrows', 'Week rows'], ['habit', 'Habit']];
+	// layouts whose totals, statuses or columns depend on what's checked; they re-render on every check
+	var LIVE_FORMATS = ['matrix', 'sections', 'progress', 'board', 'weekrows', 'habit'];
 
 	function nextMonday() { var d = today(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d; }
 	function nextMonthFirst() { var d = today(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
@@ -987,7 +996,9 @@
 
 	function animateOutput() {
 		if (!motionOK || state.view !== 'plan') return;
-		var items = $$('#output .month-block .entry, #output .week-block, #output .plan-calendar tbody tr, #output .plan-books .book, #output > div > svg').slice(0, 28);
+		if (state.quietRender) { state.quietRender = false; return; }
+		var items = $$('#output .month-block .entry, #output .week-block, #output .plan-calendar tbody tr, #output .plan-books .book, #output > div > svg, '
+			+ '#output .layout-matrix tbody tr, #output .sec-group, #output .progress-summary, #output .pb-row, #output .board-card, #output .layout-weekrows tbody tr, #output .habit-stats > div, #output .habit-month').slice(0, 28);
 		g.fromTo(items, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.015, ease: 'power2.out', clearProps: 'transform,opacity' });
 	}
 
@@ -1005,6 +1016,25 @@
 				g.fromTo($q('.week', block), { '--done': 0 }, { '--done': 1, duration: 0.5, delay: 0.15, ease: 'back.out(3)' });
 			}
 		});
+	}
+
+	/* Re-render a live layout after a check, without the entrance animation or a scroll jump.
+	   On the Board, a book whose column changed slides in. */
+	function refreshLiveLayout(checkedId) {
+		var y = window.scrollY, before = {};
+		$$('#output .board-card').forEach(function (c) { before[c.dataset.book] = c.closest('.board-col').dataset.col; });
+		state.quietRender = true;
+		updateDisplay();
+		window.scrollTo(0, y);
+		if (!motionOK) return;
+		$$('#output .board-card').forEach(function (c) {
+			var col = c.closest('.board-col').dataset.col;
+			if (before[c.dataset.book] && before[c.dataset.book] !== col) {
+				g.fromTo(c, { opacity: 0, x: -24, scale: 0.96 }, { opacity: 1, x: 0, scale: 1, duration: 0.55, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
+			}
+		});
+		var box = checkedId && doc.getElementById(checkedId);
+		if (box && box.checked) g.fromTo(box, { scale: 0.6 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
 	}
 
 	window.onPlanRendered = function () {
@@ -1278,6 +1308,7 @@
 			if (!e.target.classList.contains('reading-check')) return;
 			updateProgress(true);
 			markCompleteWeeks(true);
+			if (LIVE_FORMATS.indexOf(currentParams().get('format')) > -1) return refreshLiveLayout(e.target.id);
 			if (motionOK && e.target.checked) g.fromTo(e.target, { scale: 0.6 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
 		});
 

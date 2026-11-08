@@ -121,6 +121,13 @@
 					<button type="button" role="radio" data-format="books">Books</button>
 					<button type="button" role="radio" data-format="circle" hidden>Wheel</button>
 					<button type="button" role="radio" data-format="circlecal" hidden>Year wheel</button>
+					<span class="seg-sep" aria-hidden="true"></span>
+					<button type="button" role="radio" data-format="matrix">Matrix</button>
+					<button type="button" role="radio" data-format="sections">Sections</button>
+					<button type="button" role="radio" data-format="progress">Progress</button>
+					<button type="button" role="radio" data-format="board">Board</button>
+					<button type="button" role="radio" data-format="weekrows">Week rows</button>
+					<button type="button" role="radio" data-format="habit">Habit</button>
 				</div>
 
 				<div id="output" data-anim></div>
@@ -290,6 +297,30 @@
 					<label>
 						<input type="radio" id="formatstyle-books" name="formatstyle" value="circlecal">
 						Circle (Calendar)
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="matrix">
+						Matrix
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="sections">
+						Sections
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="progress">
+						Progress
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="board">
+						Board
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="weekrows">
+						Week rows
+					</label>
+					<label>
+						<input type="radio" name="formatstyle" value="habit">
+						Habit
 					</label>					
 				</div>
 			</section>				
@@ -496,6 +527,7 @@
 <script src="bible.pericopes.js"></script>
 <script src="plans.js"></script>
 <script src="renderers.js"></script>
+<script src="layouts.js"></script>
 <script src="app.js"></script>
 <script src="gsap.min.js"></script>
 <script src="shell.js"></script>
