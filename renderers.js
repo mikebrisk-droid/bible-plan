@@ -387,96 +387,73 @@ function createFinalStats(days) {
 }
 
 function buildbooks(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates) {
-	
-	var html = [],
-		today = new Date();
 
-	html.push('<style>');
-			
-	for (var i=2; i<20; i++) {
-	//	html.push('.plan-books  .chapters-' + i + ' { min-width: ' + (0.25 * i + 0.01 * (i-1)) + 'in;  }');	
-	}		
-		
-	html.push('</style>');
-	
-	html.push('<div class="plan-books">');
+	// One row per book, in Bible order, with that book's readings in date order. Plans that jump
+	// between books (chronological, M'Cheyne, harmonies) still read as a clean list of books.
+	var today = new Date(),
+		boxesByBook = {},
+		bookOrder = Object.keys(bible.BIBLE_DATA);
 
-	var lastBookUsfm = '',
-		lastChapterNumber = 0;
-	
 	for (var i=0; i<data.days.length; i++) {
 		var dayInfo = data.days[i];
-		
-		//console.log(i);
-		
-		// ignore empty days
-		if (dayInfo.chapters.length == 0) {
-			continue;
-		}
-		
+
 		for (var j=0; j<dayInfo.chapters.length; j++) {
 			var chapter = dayInfo.chapters[j],
-				bookInfo = bible.BIBLE_DATA[chapter.usfm];
-				
-			if (lastBookUsfm != chapter.usfm) {
-				
-				// close last one
-				if (lastBookUsfm != '') {					
-					html.push('</div></div>');
-				}
-				
-				// open this one
-				html.push('<div class="book">');
-				html.push('<div class="name"><span class="box title section-' + bible.SECTIONS[bookInfo.section] + '">' + bible.getName(bookInfo, lang) + '</span></div>');				
-				html.push('<div class="chapters">');
-								
-								
-			}
-			
-			// simple
-			//html.push('<span class="box chapter section-' + bookInfo.section + '">' + chapter.chapter + '</span>');
-			
-			// how many days is this run?
-			var chaptersOnThisDay = 1,
-				foundEnd = false,
-				startChapter = dayInfo.chapters[j].chapter,
-				endChapter = dayInfo.chapters[dayInfo.chapters.length-1].chapter;
-			
-			j++;
-			while (j<dayInfo.chapters.length && !foundEnd) {
-				var nextchapter = dayInfo.chapters[j];
-				if (nextchapter.usfm == chapter.usfm) {
-					chaptersOnThisDay++;
-					j++;
-				} else {
-					j--;
-					foundEnd = true;
-					endChapter = dayInfo.chapters[j].chapter;
-				}
-			}
-			
-			html.push('<span class="box chapter ' + (isSameDay(today, dayInfo.date) ? ' is-today': '') + ' section-' + bible.SECTIONS[bookInfo.section] + ' chapters-' + chaptersOnThisDay + '">' + 
-				(noDates ? '' : (dayInfo.date.getMonth()+1) + '/' + (dayInfo.date.getDate()) + ': ' ) + 
-				startChapter + (startChapter != endChapter ? '-' + endChapter : '') +
-			'</span>');
-			
-			lastBookUsfm = chapter.usfm;	
-			
-		}
-		
-	
-	}
-	
-	
-	// close last one	
-	html.push('</div><div class="clear"></div></div>');	
+				bookInfo = bible.BIBLE_DATA[chapter.usfm],
+				first = chapter,
+				last = chapter,
+				chaptersOnThisDay = 1;
 
-	// close container
+			if (!bookInfo) {
+				continue;
+			}
+
+			// how many chapters of this book are in this day's reading?
+			while (j + 1 < dayInfo.chapters.length && dayInfo.chapters[j + 1].usfm == chapter.usfm) {
+				j++;
+				last = dayInfo.chapters[j];
+				chaptersOnThisDay++;
+			}
+
+			(boxesByBook[chapter.usfm] = boxesByBook[chapter.usfm] || []).push(
+				'<span class="box chapter ' + (isSameDay(today, dayInfo.date) ? ' is-today': '') + ' section-' + bible.SECTIONS[bookInfo.section] + ' chapters-' + chaptersOnThisDay + '">' +
+					(noDates ? '' : (dayInfo.date.getMonth()+1) + '/' + (dayInfo.date.getDate()) + ': ' ) +
+					formatBookBoxRange(bookInfo, first, last) +
+				'</span>');
+		}
+	}
+
+	var html = ['<div class="plan-books">'];
+
+	bookOrder.forEach(function(usfm) {
+		if (!boxesByBook[usfm]) {
+			return;
+		}
+		var bookInfo = bible.BIBLE_DATA[usfm];
+		html.push('<div class="book">');
+		html.push('<div class="name"><span class="box title section-' + bible.SECTIONS[bookInfo.section] + '">' + bible.getName(bookInfo, lang) + '</span></div>');
+		html.push('<div class="chapters">' + boxesByBook[usfm].join('') + '</div>');
+		html.push('</div>');
+	});
+
 	html.push('</div>');
-	
-	
+
 	return html.join('\n');
-	
+}
+
+// "3", "3–5", or with verses when a pericope plan reads part of a chapter: "1:39–66", "1:67–2:12"
+function formatBookBoxRange(bookInfo, first, last) {
+	var startVerse = first.startVerse || 1,
+		endVerse = last.endVerse || bookInfo.chapters[last.chapter - 1],
+		wholeChapters = startVerse === 1 && endVerse === bookInfo.chapters[last.chapter - 1];
+
+	if (wholeChapters) {
+		return first.chapter + (first.chapter != last.chapter ? '–' + last.chapter : '');
+	}
+	if (first.chapter == last.chapter) {
+		return first.chapter + ':' + startVerse + '–' + endVerse;
+	}
+	return first.chapter + ':' + startVerse + '–' + last.chapter + ':' + endVerse;
 }
 
 function buildcircle(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates) {

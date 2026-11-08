@@ -474,6 +474,11 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 	// format
 	data.days.forEach(function(dayInfo) {
 
+		// pericope days only know their verse ranges; derive the chapters they touch so the
+		// Books layout, section colors and passage lookups work for them too
+		if (dayInfo.chapters.length == 0 && dayInfo.pericopes.length > 0) {
+			dayInfo.chapters = chaptersFromPericopes(dayInfo.pericopes);
+		}
 
 		if (logic == 'pericopes') { 
 			dayInfo.formattedReading = formatPericopeRange(lang, dayInfo.pericopes, false, urlSite, urlVersion);
@@ -533,6 +538,52 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 	
 	
 	return data;	
+}
+
+// [{start:'LUK_1_39', end:'LUK_1_66'}, ...] -> [{usfm:'LUK', chapter:1, startVerse:39, endVerse:66}, ...]
+function chaptersFromPericopes(pericopes) {
+	var chapters = [],
+		bookOrder = Object.keys(bible.BIBLE_DATA);
+
+	pericopes.forEach(function(pericope) {
+		if (!pericope || !pericope.start || !pericope.end) {
+			return;
+		}
+		var start = pericope.start.split('_'),
+			end = pericope.end.split('_'),
+			usfm = start[0],
+			chapter = parseInt(start[1], 10),
+			guard = 0;
+
+		while (guard++ < 200) {
+			var book = bible.BIBLE_DATA[usfm];
+			if (!book || !book.chapters[chapter - 1]) {
+				break;
+			}
+			var isFirst = usfm == start[0] && chapter == parseInt(start[1], 10),
+				isLast = usfm == end[0] && chapter == parseInt(end[1], 10),
+				fromVerse = isFirst ? parseInt(start[2], 10) || 1 : 1,
+				toVerse = isLast ? parseInt(end[2], 10) || book.chapters[chapter - 1] : book.chapters[chapter - 1],
+				previous = chapters[chapters.length - 1];
+
+			if (previous && previous.usfm == usfm && previous.chapter == chapter) {
+				previous.endVerse = Math.max(previous.endVerse, toVerse);
+			} else {
+				chapters.push({ usfm: usfm, chapter: chapter, startVerse: fromVerse, endVerse: toVerse });
+			}
+
+			if (isLast) {
+				break;
+			}
+			chapter++;
+			if (chapter > book.chapters.length) {
+				usfm = bookOrder[bookOrder.indexOf(usfm) + 1];
+				chapter = 1;
+			}
+		}
+	});
+
+	return chapters;
 }
 
 function optimizePericopes(days) {
