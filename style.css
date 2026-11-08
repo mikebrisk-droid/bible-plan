@@ -234,10 +234,40 @@ main {
 	align-items: center;
 	gap: 16px;
 	padding: calc(18px + env(safe-area-inset-top)) var(--gutter) 14px;
-	background: color-mix(in srgb, var(--bg) 86%, transparent);
-	backdrop-filter: saturate(1.6) blur(18px);
-	-webkit-backdrop-filter: saturate(1.6) blur(18px);
 }
+
+/* Progressive blur: six stacked backdrop blurs, each masked to a band, so content is
+   heavily blurred at the very top and eases back to sharp just below the bar. */
+.appbar-blur {
+	position: absolute;
+	inset: 0 0 -40px;
+	z-index: -1;
+	pointer-events: none;
+}
+.appbar-blur::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(to bottom,
+		color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+		color-mix(in srgb, var(--bg) 64%, transparent) 55%,
+		color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+}
+.appbar-blur > i {
+	position: absolute;
+	inset: 0;
+	--b: 1px;
+	--m: linear-gradient(to top, transparent 0%, #000 16%, #000 33%, transparent 50%);
+	backdrop-filter: blur(var(--b));
+	-webkit-backdrop-filter: blur(var(--b));
+	-webkit-mask-image: var(--m);
+	mask-image: var(--m);
+}
+.appbar-blur > i:nth-child(2) { --b: 2px; --m: linear-gradient(to top, transparent 16%, #000 33%, #000 50%, transparent 66%); }
+.appbar-blur > i:nth-child(3) { --b: 4px; --m: linear-gradient(to top, transparent 33%, #000 50%, #000 66%, transparent 83%); }
+.appbar-blur > i:nth-child(4) { --b: 8px; --m: linear-gradient(to top, transparent 50%, #000 66%, #000 83%, transparent 100%); }
+.appbar-blur > i:nth-child(5) { --b: 16px; --m: linear-gradient(to top, transparent 66%, #000 83%, #000 100%); }
+.appbar-blur > i:nth-child(6) { --b: 28px; --m: linear-gradient(to top, transparent 83%, #000 100%); }
 
 .brand { justify-self: start; color: var(--ink); text-decoration: none; }
 .brand .logo { height: 44px; }
@@ -1515,7 +1545,7 @@ body.has-sheet { overflow: hidden; }
 	@page { margin: 0.5in; }
 
 	body { background: #fff; color: #000; font-size: 10pt; }
-	.appbar, .credit, .plan-head, .progress-card, .layout-switch, .sheet, .toast, .plan-empty,
+	.appbar, .appbar-blur, .credit, .plan-head, .progress-card, .layout-switch, .sheet, .toast, .plan-empty,
 	#view-home, #view-plans, #view-create { display: none !important; }
 	#view-plan { display: block !important; padding: 0; max-width: none; }
 	main { padding: 0; }
