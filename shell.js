@@ -558,7 +558,7 @@
 		if (parseInt(get('total'), 10) > 0) B.total = parseInt(get('total'), 10);
 		if (get('daysofweek')) B.days = get('daysofweek').split(',').filter(Boolean).map(Number);
 		['logic', 'format', 'lang', 'urlsite', 'urlversion'].forEach(function (k) { if (get(k)) B[k] = get(k); });
-		if (B.format === 'pdf') B.format = 'calendar';
+		if (B.format === 'pdf' || HIDDEN_FORMATS.indexOf(B.format) > -1) B.format = 'calendar';
 		FLAGS.forEach(function (k) { if (get(k) != null) B[k] = get(k) === '1'; });
 	}
 
@@ -659,7 +659,9 @@
 		circle: '<circle cx="24" cy="21" r="14"/><path d="M24 7v28M10 21h28M14 11l20 20M34 11 14 31"/>',
 		circlecal: '<circle cx="24" cy="21" r="14"/><circle cx="24" cy="21" r="9"/><circle cx="24" cy="21" r="4"/>'
 	};
-	var LAYOUTS = [['calendar', 'Calendar'], ['list', 'List'], ['weeks', 'Weeks'], ['books', 'Books'], ['circle', 'Circle (Slices)'], ['circlecal', 'Circle (Calendar)']];
+	// The wheel layouts (circle, circlecal) are hidden for now; plans that use them open in Calendar
+	var HIDDEN_FORMATS = ['circle', 'circlecal'];
+	var LAYOUTS = [['calendar', 'Calendar'], ['list', 'List'], ['weeks', 'Weeks'], ['books', 'Books']];
 
 	function nextMonday() { var d = today(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d; }
 	function nextMonthFirst() { var d = today(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
@@ -967,6 +969,10 @@
 		sub.push(daysLabel(p.get('daysofweek')));
 		$q('#plan-sub').textContent = sub.join(' · ');
 		var format = p.get('format') || 'list';
+		if (HIDDEN_FORMATS.indexOf(format) > -1) {
+			jQuery('input[name=formatstyle][value="calendar"]').prop('checked', true).trigger('change');
+			return;
+		}
 		$$('.layout-switch button').forEach(function (b) { b.setAttribute('aria-checked', String(b.dataset.format === format)); });
 	}
 
