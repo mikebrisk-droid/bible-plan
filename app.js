@@ -73,6 +73,8 @@ function initThemeToggle() {
 	function setTheme(theme, persist) {
 		var isDark = theme === 'dark';
 		document.documentElement.setAttribute('data-theme', theme);
+		var meta = document.querySelector('meta[name="theme-color"]');
+		if (meta) meta.setAttribute('content', isDark ? '#0d0d0f' : '#f7f7f8');
 		$('.js-theme-toggle')
 			.attr('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode')
 			.attr('aria-pressed', isDark ? 'true' : 'false');
@@ -899,12 +901,12 @@ function loadFromParams(urlParams) {
 				books = urlParams.get('books');
 				books = books.split(',');
 
-				if (books[0] == 'OT') {
+				if (books.indexOf('OT') > -1) {
 					$('.order-alternate .section-OT input').prop('checked',true);
 				}
-				if (books[0] == 'NT') {
+				if (books.indexOf('NT') > -1) {
 					$('.order-alternate .section-NT input').prop('checked',true);
-				}				
+				}
 				
 				
 				for (var i=0; i<books.length; i++) {

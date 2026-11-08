@@ -148,7 +148,7 @@
 
 	/* ---------- Plan math (uses the engine directly, without touching the form) ---------- */
 
-	var BASE = { total: 365, order: 'traditional', books: 'OT,NT', logic: 'words', daysofweek: '1,2,3,4,5,6,7', dailypsalm: '0', dailyproverb: '0', otntoverlap: '0' };
+	var BASE = { total: 365, order: 'traditional', books: 'OT,NT', logic: 'words', daysofweek: '1,2,3,4,5,6,7', dailypsalm: '0', dailyproverb: '0', otntoverlap: '0', reverse: '0' };
 
 	function withDefaults(p) {
 		var out = {}, k;
@@ -162,10 +162,9 @@
 		var list = String(books || '').split(',').filter(Boolean);
 		if (order === 'chronological') return list;
 		if (order === 'mcheyne') return [];
+		var groups = order === 'alternate' ? { OT: bible.TANAKH_BOOKS, NT: bible.GOSPEL_BOOKS } : { OT: bible.OT_BOOKS, DC: bible.DC_BOOKS, NT: bible.NT_BOOKS };
 		var out = [];
-		list.forEach(function (b) {
-			out = out.concat(bible.TESTAMENTS.indexOf(b) > -1 ? bible[b + '_BOOKS'] : [b]);
-		});
+		list.forEach(function (b) { out = out.concat(groups[b] || [b]); });
 		return out;
 	}
 
@@ -178,7 +177,7 @@
 			data = getPlanData('en', p.order, parseYmd(p.start) || today(), parseInt(p.total, 10),
 				expandBooks(p.order, p.books),
 				p.daysofweek.split(',').filter(Boolean).map(function (n) { return n - 1; }),
-				p.dailypsalm === '1', p.dailyproverb === '1', p.otntoverlap === '1', false, p.logic, false, 'biblegateway', 'NIV');
+				p.dailypsalm === '1', p.dailyproverb === '1', p.otntoverlap === '1', p.reverse === '1', p.logic, false, 'biblegateway', 'NIV');
 		} catch (e) {
 			return null;
 		}
@@ -212,7 +211,7 @@
 			stats: on('options-stats'),
 			dailystats: on('options-dailystats'),
 			nodates: on('options-nodates'),
-			includeurls: '0',
+			includeurls: on('options-includeurls'),
 			urlsite: $q('#options-urlsite').value,
 			urlversion: $q('#options-urlversion').value
 		};
@@ -220,15 +219,15 @@
 
 	function toQuery(params, display) {
 		var p = withDefaults(params), d = display || displayPrefs(), q = new URLSearchParams();
-		['start', 'total', 'order', 'books', 'logic', 'daysofweek', 'dailypsalm', 'dailyproverb', 'otntoverlap'].forEach(function (k) { q.set(k, p[k]); });
+		['start', 'total', 'order', 'books', 'logic', 'daysofweek', 'dailypsalm', 'dailyproverb', 'otntoverlap', 'reverse'].forEach(function (k) { q.set(k, p[k]); });
 		Object.keys(d).forEach(function (k) { q.set(k, d[k]); });
 		return q;
 	}
 
 	function saveActive() { store.set(ACTIVE_KEY, state.active); }
 
-	function startPlan(params, meta) {
-		var q = toQuery(params);
+	function startPlan(params, meta, display) {
+		var q = toQuery(params, display);
 		state.active = { query: '?' + q.toString(), name: meta.name, planId: meta.planId || null };
 		saveActive();
 		loadFromParams(q);
@@ -512,63 +511,116 @@
 		}, 60);
 	}
 
-	/* ---------- Builder ---------- */
+	/* ---------- Builder: every control from the original generator sidebar, in five steps ---------- */
 
-	var STEP_TITLES = ['What will you read?', 'How long?', 'Which days?', 'Finishing touches'];
+	var STEPS = [
+		{ label: 'Time', title: 'Time frame' },
+		{ label: 'Format', title: 'Format' },
+		{ label: 'Books', title: 'Bible books' },
+		{ label: 'Days', title: 'Days of the week' },
+		{ label: 'Options', title: 'Options' }
+	];
+	var LAST = STEPS.length - 1;
+	var FLAGS = ['checkbox', 'colors', 'dailypsalm', 'dailyproverb', 'otntoverlap', 'reverse', 'nodates', 'stats', 'dailystats', 'includeurls'];
+	var DC_LIST = bible.DC_BOOKS.filter(function (u) { return bible.BIBLE_DATA[u]; });
 	var B;
 
 	function resetBuilder() {
-		B = { step: 0, order: 'traditional', scope: 'whole', books: [], total: 365, start: ymd(today()), days: [1, 2, 3, 4, 5, 6, 7],
-			dailypsalm: false, dailyproverb: false, otntoverlap: false, logic: 'words' };
+		B = {
+			step: 0, start: ymd(today()), total: 365,
+			format: 'list', lang: ($q('#options-language') || {}).value || 'en',
+			order: 'traditional', scope: 'whole', books: [], altBooks: bible.TANAKH_BOOKS.slice(), logic: 'words',
+			days: [1, 2, 3, 4, 5, 6, 7],
+			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
+			nodates: false, stats: false, dailystats: false, includeurls: false,
+			urlsite: 'biblegateway', urlversion: 'NIV'
+		};
 	}
 	resetBuilder();
 
+	/* Load any query (a template, the active plan, a shared link) into the builder; missing keys keep defaults. */
 	function builderFrom(params) {
-		function get(k) { return params.get ? params.get(k) : params[k]; }
+		function get(k) { var v = params.get ? params.get(k) : params[k]; return v == null ? null : String(v); }
 		resetBuilder();
-		B.order = get('order') || 'traditional';
-		if (B.order === 'alternate' || B.order === 'tanakh') B.order = 'traditional';
-		var books = String(get('books') || 'OT,NT');
-		if (books === 'OT,NT' || books === 'OT,DC,NT') B.scope = 'whole';
-		else if (books === 'OT' || books === 'NT') B.scope = books;
-		else { B.scope = 'custom'; B.books = expandBooks('traditional', books); }
-		if (B.order === 'chronological' && B.scope === 'custom') B.scope = 'whole';
-		B.total = parseInt(get('total'), 10) || 365;
-		B.start = parseYmd(get('start')) ? get('start') : ymd(today());
-		if (parseYmd(B.start) < today()) B.start = ymd(today());
-		B.days = String(get('daysofweek') || BASE.daysofweek).split(',').filter(Boolean).map(Number);
-		B.dailypsalm = get('dailypsalm') === '1';
-		B.dailyproverb = get('dailyproverb') === '1';
-		B.otntoverlap = get('otntoverlap') === '1';
-		B.logic = get('logic') || 'words';
+		if (get('order')) B.order = get('order') === 'tanakh' ? 'alternate' : get('order');
+		var books = (get('books') || 'OT,NT').split(',').filter(Boolean);
+		if (B.order === 'alternate') {
+			B.altBooks = expandBooks('alternate', books.join(','));
+		} else if (B.order === 'chronological') {
+			B.scope = books.indexOf('OT') > -1 && books.indexOf('NT') > -1 ? 'whole' : books.indexOf('NT') > -1 ? 'NT' : 'OT';
+		} else {
+			var joined = books.join(',');
+			if (joined === 'OT,NT') B.scope = 'whole';
+			else if (joined === 'OT' || joined === 'NT') B.scope = joined;
+			else { B.scope = 'custom'; B.books = expandBooks('traditional', joined); }
+		}
+		if (parseYmd(get('start'))) B.start = get('start');
+		if (parseInt(get('total'), 10) > 0) B.total = parseInt(get('total'), 10);
+		if (get('daysofweek')) B.days = get('daysofweek').split(',').filter(Boolean).map(Number);
+		['logic', 'format', 'lang', 'urlsite', 'urlversion'].forEach(function (k) { if (get(k)) B[k] = get(k); });
+		if (B.format === 'pdf') B.format = 'calendar';
+		FLAGS.forEach(function (k) { if (get(k) != null) B[k] = get(k) === '1'; });
 	}
 
-	var CANON = [].concat(bible.OT_BOOKS, bible.NT_BOOKS, bible.DC_BOOKS);
-	function sortCanon(list) { return list.slice().sort(function (a, b) { return CANON.indexOf(a) - CANON.indexOf(b); }); }
+	var CANON = [].concat(bible.OT_BOOKS, bible.DC_BOOKS, bible.NT_BOOKS);
+	var ALT = [].concat(bible.TANAKH_BOOKS, bible.GOSPEL_BOOKS);
+	function sortBy(list, order) { return list.slice().sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); }); }
+	function hasAll(list, group) { return group.every(function (u) { return list.indexOf(u) > -1; }); }
+
+	function booksParam() {
+		if (B.order === 'mcheyne') return 'OT,NT';
+		if (B.order === 'chronological') return B.scope === 'whole' ? 'OT,NT' : B.scope;
+		if (B.order === 'alternate') {
+			var out = [];
+			[['OT', bible.TANAKH_BOOKS], ['NT', bible.GOSPEL_BOOKS]].forEach(function (pair) {
+				if (hasAll(B.altBooks, pair[1])) out.push(pair[0]);
+				else out = out.concat(sortBy(B.altBooks.filter(function (u) { return pair[1].indexOf(u) > -1; }), pair[1]));
+			});
+			return out.join(',');
+		}
+		if (B.scope === 'custom') return sortBy(B.books, CANON).join(',');
+		return B.scope === 'whole' ? 'OT,NT' : B.scope;
+	}
 
 	function builderParams() {
-		var books = B.order === 'mcheyne' || B.scope === 'whole' ? 'OT,NT' : B.scope === 'custom' ? sortCanon(B.books).join(',') : B.scope;
-		return {
-			start: B.start, total: B.total, order: B.order, books: books, logic: B.logic,
-			daysofweek: B.days.slice().sort().join(','),
-			dailypsalm: B.dailypsalm ? '1' : '0', dailyproverb: B.dailyproverb ? '1' : '0', otntoverlap: B.otntoverlap ? '1' : '0'
+		var p = {
+			start: B.start, total: B.total, order: B.order, books: booksParam(), logic: B.logic,
+			daysofweek: B.days.slice().sort().join(',')
 		};
+		['dailypsalm', 'dailyproverb', 'otntoverlap', 'reverse'].forEach(function (k) { p[k] = B[k] ? '1' : '0'; });
+		return p;
+	}
+
+	function builderDisplay() {
+		var d = { format: B.format, lang: B.lang, urlsite: B.urlsite, urlversion: B.urlversion };
+		['checkbox', 'colors', 'stats', 'dailystats', 'nodates', 'includeurls'].forEach(function (k) { d[k] = B[k] ? '1' : '0'; });
+		return d;
 	}
 
 	function bookName(usfm) { return bible.getName(bible.BIBLE_DATA[usfm], 'en'); }
 
 	function builderName() {
 		if (B.order === 'mcheyne') return 'M’Cheyne Plan';
+		if (B.order === 'alternate') {
+			var t = hasAll(B.altBooks, bible.TANAKH_BOOKS), gw = hasAll(B.altBooks, bible.GOSPEL_BOOKS);
+			if (t && gw) return 'Tanakh & Gospel Writers';
+			if (t && B.altBooks.length === bible.TANAKH_BOOKS.length) return 'Hebrew Tanakh';
+			if (gw && B.altBooks.length === bible.GOSPEL_BOOKS.length) return 'Gospel Writers';
+		}
 		var scope = { whole: 'Whole Bible', OT: 'Old Testament', NT: 'New Testament' }[B.scope];
 		if (B.order === 'chronological') return 'Chronological ' + (B.scope === 'whole' ? 'Bible' : scope);
-		if (scope) return scope;
-		var books = sortCanon(B.books);
+		if (B.order === 'traditional' && scope) return scope;
+		var books = B.order === 'alternate' ? sortBy(B.altBooks, ALT) : sortBy(B.books, CANON);
 		if (!books.length) return 'Choose some books';
 		if (books.length <= 3) return books.map(bookName).join(', ').replace(/, ([^,]*)$/, ' & $1');
 		return books.length + ' books';
 	}
 
-	function builderValid() { return B.days.length > 0 && B.total > 0 && (B.scope !== 'custom' || B.books.length > 0 || B.order === 'mcheyne'); }
+	function bookProblem() {
+		if (B.order === 'alternate') return !B.altBooks.length;
+		return B.order === 'traditional' && B.scope === 'custom' && !B.books.length;
+	}
+	function builderValid() { return B.days.length > 0 && B.total > 0 && !!parseYmd(B.start) && !bookProblem(); }
 
 	function segmented(name, options, value) {
 		return '<div class="segmented" role="radiogroup">' + options.map(function (o) {
@@ -582,60 +634,103 @@
 		}).join('') + '</div>';
 	}
 
-	function bookGroup(key, label, list) {
+	function bookGroup(key, label, list, selected, attr) {
 		return '<div class="book-group"><div class="book-group-head"><strong>' + label + '</strong>' +
-			'<button type="button" class="link-btn" data-book-all="' + key + '">All / none</button></div><div class="book-chips">' +
-			list.map(function (u) { return '<button type="button" class="book-chip" data-book="' + u + '" aria-pressed="' + (B.books.indexOf(u) > -1) + '">' + esc(bookName(u)) + '</button>'; }).join('') +
+			'<button type="button" class="link-btn" data-group-all="' + key + '">All / none</button></div><div class="book-chips">' +
+			list.map(function (u) { return '<button type="button" class="book-chip" data-' + attr + '="' + u + '" aria-pressed="' + (selected.indexOf(u) > -1) + '">' + esc(bookName(u)) + '</button>'; }).join('') +
 			'</div></div>';
 	}
+
+	function toggleRow(key, label, hint) {
+		return '<label class="row"><span>' + label + (hint ? '<small>' + hint + '</small>' : '') + '</span>' +
+			'<input type="checkbox" class="switch" data-opt="' + key + '"' + (B[key] ? ' checked' : '') + '></label>';
+	}
+
+	function selectFrom(id, sourceId, value) {
+		var src = doc.getElementById(sourceId);
+		return '<select id="' + id + '">' + (src ? src.innerHTML : '') + '</select>';
+	}
+
+	var LAYOUT_ART = {
+		calendar: '<rect x="6" y="8" width="36" height="26" rx="3"/><path d="M6 15h36M18 15v19M30 15v19M6 24.5h36"/>',
+		list: '<path d="M8 11h4M16 11h24M8 19h4M16 19h20M8 27h4M16 27h22"/>',
+		weeks: '<rect x="6" y="8" width="16" height="26" rx="3"/><rect x="26" y="8" width="16" height="26" rx="3"/><path d="M10 15h8M10 21h8M10 27h6M30 15h8M30 21h8M30 27h6"/>',
+		books: '<rect x="6" y="9" width="12" height="6" rx="2"/><rect x="21" y="9" width="8" height="6" rx="2"/><rect x="32" y="9" width="10" height="6" rx="2"/><rect x="6" y="18" width="16" height="6" rx="2"/><rect x="25" y="18" width="17" height="6" rx="2"/><rect x="6" y="27" width="9" height="6" rx="2"/><rect x="18" y="27" width="12" height="6" rx="2"/>',
+		circle: '<circle cx="24" cy="21" r="14"/><path d="M24 7v28M10 21h28M14 11l20 20M34 11 14 31"/>',
+		circlecal: '<circle cx="24" cy="21" r="14"/><circle cx="24" cy="21" r="9"/><circle cx="24" cy="21" r="4"/>'
+	};
+	var LAYOUTS = [['calendar', 'Calendar'], ['list', 'List'], ['weeks', 'Weeks'], ['books', 'Books'], ['circle', 'Circle (Slices)'], ['circlecal', 'Circle (Calendar)']];
 
 	function nextMonday() { var d = today(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d; }
 	function nextMonthFirst() { var d = today(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
 	function nextJan1() { var d = today(); return new Date(d.getFullYear() + 1, 0, 1); }
 
+	function endLabel() {
+		var s = parseYmd(B.start);
+		return s && B.total > 0 ? 'Ends ' + fmt(s.addDays(B.total - 1), { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+	}
+
 	function stepHtml() {
-		var h = '<h2>' + STEP_TITLES[B.step] + '</h2>';
+		var h = '<h2>' + STEPS[B.step].title + '</h2>';
+
 		if (B.step === 0) {
-			h += '<div class="field"><span class="field-label">Order</span>' +
-				segmented('order', [['traditional', 'Bible order'], ['chronological', 'Chronological'], ['mcheyne', 'M’Cheyne']], B.order) + '</div>';
-			if (B.order !== 'mcheyne') {
-				var count = B.books.length;
-				h += '<div class="field"><span class="field-label">Books</span><div class="choice-grid">' +
-					[['whole', 'Whole Bible', '66 books'], ['OT', 'Old Testament', '39 books'], ['NT', 'New Testament', '27 books'],
-						['custom', 'Choose books', count ? count + ' selected' : 'Any you like']].map(function (c) {
-						var disabled = c[0] === 'custom' && B.order === 'chronological';
-						return '<button type="button" class="choice" data-scope="' + c[0] + '" aria-pressed="' + (B.scope === c[0]) + '"' + (disabled ? ' disabled' : '') + '><strong>' + c[1] + '</strong><small' + (c[0] === 'custom' ? ' id="custom-count"' : '') + '>' + c[2] + '</small></button>';
-					}).join('') + '</div></div>';
-				if (B.scope === 'custom') {
-					h += '<div class="field book-picker">' + bookGroup('OT', 'Old Testament', bible.OT_BOOKS) + bookGroup('NT', 'New Testament', bible.NT_BOOKS) +
-						bookGroup('DC', 'Deuterocanonical', bible.DC_BOOKS.filter(function (u) { return bible.BIBLE_DATA[u]; })) + '</div>';
-				}
-			}
-		} else if (B.step === 1) {
-			var presets = [30, 90, 182, 365, 730], custom = presets.indexOf(B.total) < 0;
-			h += '<div class="field"><span class="field-label">Finish in</span>' +
-				pills('total', [[30, '30 days'], [90, '3 months'], [182, '6 months'], [365, '1 year'], [730, '2 years'], ['custom', 'Custom']], custom ? 'custom' : B.total) +
-				'<label class="inline-field"' + (custom ? '' : ' hidden') + ' id="custom-total"><input class="input input-days" type="number" min="1" max="3650" id="b-total" value="' + B.total + '"> days</label></div>';
-			var starts = [['today', 'Today', today()], ['monday', 'Next Monday', nextMonday()], ['month', '1st of next month', nextMonthFirst()], ['jan', 'January 1', nextJan1()]];
-			var picked = starts.filter(function (s) { return ymd(s[2]) === B.start; })[0];
+			var starts = [['Today', today()], ['Next Monday', nextMonday()], ['1st of next month', nextMonthFirst()], ['January 1', nextJan1()]];
 			h += '<div class="field"><span class="field-label">Start</span>' +
-				pills('start', starts.map(function (s) { return [ymd(s[2]), s[1]]; }), picked ? B.start : '') +
-				'<label class="inline-field">or pick a date <input class="input" type="date" id="b-start" value="' + B.start + '"></label></div>';
+				pills('start', starts.map(function (s) { return [ymd(s[1]), s[0]]; }), B.start) +
+				'<label class="inline-field">Start date <input class="input" type="date" id="b-start" value="' + B.start + '"></label></div>' +
+				'<div class="field"><span class="field-label">Days</span>' +
+				pills('total', [[30, '30 days'], [90, '90 days'], [182, '6 months'], [365, '1 year'], [730, '2 years']], B.total) +
+				'<label class="inline-field"><input class="input input-days" type="number" min="1" max="3650" id="b-total" value="' + B.total + '"> days <span class="muted" id="b-end">' + endLabel() + '</span></label></div>';
+
+		} else if (B.step === 1) {
+			h += '<div class="field"><span class="field-label">Layout</span><div class="layout-grid">' + LAYOUTS.map(function (l) {
+				return '<button type="button" class="layout-choice" data-format="' + l[0] + '" aria-pressed="' + (B.format === l[0]) + '">' +
+					'<svg viewBox="0 0 48 42" aria-hidden="true">' + LAYOUT_ART[l[0]] + '</svg><span>' + l[1] + '</span></button>';
+			}).join('') + '</div></div>' +
+				'<div class="rows"><label class="row"><span>Language</span>' + selectFrom('b-lang', 'options-language') + '</label></div>' +
+				'<p class="fine">Print, iCal and CSV are under My plan → Save.</p>';
+
 		} else if (B.step === 2) {
+			h += '<div class="field"><span class="field-label">Order</span>' +
+				segmented('order', [['traditional', 'Traditional'], ['chronological', 'Chronological'], ['alternate', 'Alternate'], ['mcheyne', 'M’Cheyne']], B.order) + '</div>';
+			if (B.order === 'traditional' || B.order === 'chronological') {
+				var choices = [['whole', 'Whole Bible', '66 books'], ['OT', 'Old Testament', '39 books'], ['NT', 'New Testament', '27 books']];
+				if (B.order === 'traditional') choices.push(['custom', 'Choose books', B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical']);
+				h += '<div class="field"><span class="field-label">Books</span><div class="choice-grid">' + choices.map(function (c) {
+					return '<button type="button" class="choice" data-scope="' + c[0] + '" aria-pressed="' + (B.scope === c[0]) + '"><strong>' + c[1] + '</strong><small' + (c[0] === 'custom' ? ' id="custom-count"' : '') + '>' + c[2] + '</small></button>';
+				}).join('') + '</div></div>';
+				if (B.order === 'traditional' && B.scope === 'custom') {
+					h += '<div class="field book-picker">' +
+						bookGroup('OT', 'Old Testament', bible.OT_BOOKS, B.books, 'book') +
+						bookGroup('DC', 'Deuterocanonical', DC_LIST, B.books, 'book') +
+						bookGroup('NT', 'New Testament', bible.NT_BOOKS, B.books, 'book') + '</div>';
+				}
+			} else if (B.order === 'alternate') {
+				h += '<div class="field book-picker">' +
+					bookGroup('TANAKH', 'Hebrew Tanakh', bible.TANAKH_BOOKS, B.altBooks, 'alt-book') +
+					bookGroup('GOSPEL', 'Gospel Writers', bible.GOSPEL_BOOKS, B.altBooks, 'alt-book') + '</div>';
+			}
+			h += '<div class="field"><span class="field-label">Divide by</span>' +
+				segmented('logic', [['chapters', 'Number of chapters'], ['words', 'Words per chapter'], ['pericopes', 'Pericopes']], B.logic) + '</div>';
+
+		} else if (B.step === 3) {
 			h += '<div class="field"><div class="weekdays">' + DAY_NAMES.map(function (n, i) {
 				return '<button type="button" class="weekday" data-day="' + (i + 1) + '" aria-label="' + n + '" aria-pressed="' + (B.days.indexOf(i + 1) > -1) + '">' + n[0] + '</button>';
 			}).join('') + '</div></div>' +
 				'<div class="field"><span class="field-label">Quick picks</span>' +
-				pills('days', [['1,2,3,4,5,6,7', 'Every day'], ['2,3,4,5,6', 'Weekdays'], ['2,3,4,5,6,7', 'Sundays off']], B.days.slice().sort().join(',')) + '</div>';
+				pills('days', [['1,2,3,4,5,6,7', 'Every day'], ['2,3,4,5,6', 'Weekends off'], ['2,3,4,5,6,7', 'Sundays off'], ['1,2,3,4,5,6', 'Saturdays off']], B.days.slice().sort().join(',')) + '</div>';
+
 		} else {
-			var canOverlap = B.order !== 'mcheyne' && B.scope === 'whole';
-			h += '<div class="rows">' +
-				'<label class="row"><span>Daily Psalm<small>One Psalm alongside each reading</small></span><input type="checkbox" class="switch" data-opt="dailypsalm"' + (B.dailypsalm ? ' checked' : '') + '></label>' +
-				'<label class="row"><span>Daily Proverb<small>One Proverb alongside each reading</small></span><input type="checkbox" class="switch" data-opt="dailyproverb"' + (B.dailyproverb ? ' checked' : '') + '></label>' +
-				(canOverlap ? '<label class="row"><span>Old & New together<small>Read from both each day</small></span><input type="checkbox" class="switch" data-opt="otntoverlap"' + (B.otntoverlap ? ' checked' : '') + '></label>' : '') +
-				'</div>' +
-				(B.order === 'mcheyne' ? '' : '<div class="field"><span class="field-label">Split readings by</span>' +
-					segmented('logic', [['words', 'Even length'], ['chapters', 'Chapters'], ['pericopes', 'Stories']], B.logic) + '</div>');
+			h += '<span class="field-label">Reading</span><div class="rows">' +
+				toggleRow('dailypsalm', 'Daily Psalm') + toggleRow('dailyproverb', 'Daily Proverb') +
+				toggleRow('otntoverlap', 'OT/NT overlap', 'Read from both testaments each day') + toggleRow('reverse', 'Reverse') + '</div>' +
+				'<span class="field-label">Display</span><div class="rows">' +
+				toggleRow('checkbox', 'Include checkbox') + toggleRow('colors', 'Section colors') + toggleRow('nodates', 'Remove dates') +
+				toggleRow('stats', 'Show overall stats') + toggleRow('dailystats', 'Show daily stats') + '</div>' +
+				'<span class="field-label">Links</span><div class="rows">' + toggleRow('includeurls', 'Add reading links') +
+				'<label class="row"><span>Bible site</span>' + selectFrom('b-urlsite', 'options-urlsite') + '</label>' +
+				'<label class="row" id="b-version-row"' + (B.urlsite === 'yallversion' ? ' hidden' : '') + '><span>Translation</span>' + selectFrom('b-urlversion', 'options-urlversion') + '</label>' +
+				'</div>';
 		}
 		return h;
 	}
@@ -644,7 +739,9 @@
 		var el = $q('#view-create');
 		if (!el.firstChild) {
 			el.innerHTML = '<div class="builder">' +
-				'<header data-anim><span class="step-count" id="step-count"></span><ol class="stepper">' + '<li><span></span></li>'.repeat(4) + '</ol></header>' +
+				'<ol class="stepper" data-anim>' + STEPS.map(function (s, i) {
+					return '<li><button type="button" data-goto="' + i + '"><span class="bar"><span></span></span><span class="lbl">' + s.label + '</span></button></li>';
+				}).join('') + '</ol>' +
 				'<section class="step" id="step-body" aria-live="polite"></section>' +
 				'<div class="builder-bar" data-anim><div class="summary"><strong id="sum-title"></strong><span id="sum-meta"></span></div>' +
 				'<button type="button" class="btn btn-quiet" id="step-back">' + icon('back') + '<span>Back</span></button>' +
@@ -656,18 +753,31 @@
 	function renderStep(direction) {
 		var body = $q('#step-body');
 		body.innerHTML = stepHtml();
-		$q('#step-count').textContent = 'Step ' + (B.step + 1) + ' of 4';
+		var lang = $q('#b-lang'), site = $q('#b-urlsite'), version = $q('#b-urlversion');
+		if (lang) lang.value = B.lang;
+		if (site) site.value = B.urlsite;
+		if (version) version.value = B.urlversion;
+
 		$q('#step-back').style.visibility = B.step === 0 ? 'hidden' : 'visible';
-		$q('#step-next').textContent = B.step === 3 ? 'Create plan' : 'Next';
-		$$('.stepper span').forEach(function (s, i) {
-			var w = i <= B.step ? '100%' : '0%';
-			if (motionOK) g.to(s, { width: w, duration: 0.5, ease: 'power3.out' }); else s.style.width = w;
+		$q('#step-next').textContent = B.step === LAST ? 'Create plan' : 'Next';
+		$$('.stepper button').forEach(function (b, i) {
+			if (i === B.step) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+			var bar = $q('.bar span', b), w = i <= B.step ? '100%' : '0%';
+			if (motionOK) g.to(bar, { width: w, duration: 0.5, ease: 'power3.out' }); else bar.style.width = w;
 		});
 		if (motionOK && direction) {
 			g.fromTo(body, { x: 36 * direction, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: 'power3.out', clearProps: 'transform' });
-			g.from($$('.field, .rows', body), { y: 14, opacity: 0, duration: 0.45, stagger: 0.06, delay: 0.08, ease: 'power2.out', clearProps: 'transform,opacity' });
+			g.from($$('.field, .rows, .field-label', body), { y: 14, opacity: 0, duration: 0.45, stagger: 0.05, delay: 0.08, ease: 'power2.out', clearProps: 'transform,opacity' });
 		}
 		updateSummary();
+	}
+
+	function goStep(n) {
+		if (n === B.step || n < 0 || n > LAST) return;
+		var dir = n > B.step ? 1 : -1;
+		B.step = n;
+		renderStep(dir);
+		window.scrollTo({ top: 0, behavior: motionOK ? 'smooth' : 'auto' });
 	}
 
 	function rerenderStep(revealSelector) {
@@ -681,11 +791,11 @@
 	var summaryTimer, shownMinutes = null;
 	function updateSummary() {
 		$q('#sum-title').textContent = builderName();
-		var next = $q('#step-next'), meta = $q('#sum-meta');
-		next.disabled = B.step === 3 && !builderValid();
+		var next = $q('#step-next'), meta = $q('#sum-meta'), end = $q('#b-end');
+		if (end) end.textContent = endLabel();
 		if (!builderValid()) {
-			meta.textContent = B.days.length ? 'Pick at least one book' : 'Pick at least one day';
-			next.disabled = true;
+			meta.textContent = !B.days.length ? 'Pick at least one day' : bookProblem() ? 'Pick at least one book' : 'Check the start date and days';
+			next.disabled = B.step === LAST;
 			return;
 		}
 		next.disabled = false;
@@ -703,6 +813,10 @@
 		}, 180);
 	}
 
+	function setPressed(selector, match) {
+		$$(selector, $q('#view-create')).forEach(function (el) { el.setAttribute('aria-pressed', String(match(el))); });
+	}
+
 	function bindBuilder() {
 		var view = $q('#view-create');
 
@@ -712,51 +826,65 @@
 			var d = t.dataset;
 
 			if (t.id === 'step-next') {
-				if (B.step < 3) { B.step++; renderStep(1); }
-				else if (builderValid()) startPlan(builderParams(), { name: builderName() });
+				if (B.step < LAST) goStep(B.step + 1);
+				else if (builderValid()) startPlan(builderParams(), { name: builderName() }, builderDisplay());
 				return;
 			}
-			if (t.id === 'step-back') { if (B.step > 0) { B.step--; renderStep(-1); } return; }
+			if (t.id === 'step-back') return goStep(B.step - 1);
+			if (d.goto) return goStep(+d.goto);
 
+			if (d.start) {
+				B.start = d.start;
+				$q('#b-start').value = B.start;
+				setPressed('[data-start]', function (p) { return p === t; });
+				return updateSummary();
+			}
+			if (d.total) {
+				B.total = +d.total;
+				$q('#b-total').value = B.total;
+				setPressed('[data-total]', function (p) { return p === t; });
+				return updateSummary();
+			}
+			if (d.format) {
+				B.format = d.format;
+				if (B.format === 'circle' || B.format === 'books') B.colors = true;
+				setPressed('[data-format]', function (p) { return p === t; });
+				if (motionOK) g.fromTo($q('svg', t), { scale: 0.8 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
+				return;
+			}
 			if (d.order) {
 				B.order = d.order;
 				if (B.order === 'chronological' && B.scope === 'custom') B.scope = 'whole';
-				if (B.order === 'mcheyne') B.total = 365;
-				return rerenderStep();
+				if (B.order === 'mcheyne') B.logic = 'chapters';
+				return rerenderStep(B.order === 'alternate' ? '.book-picker' : null);
 			}
 			if (d.scope) {
 				B.scope = d.scope;
 				return rerenderStep(d.scope === 'custom' ? '.book-picker' : null);
 			}
-			if (d.book) {
-				var i = B.books.indexOf(d.book);
-				if (i > -1) B.books.splice(i, 1); else B.books.push(d.book);
+			if (d.book || d.altBook) {
+				var list = d.book ? B.books : B.altBooks, code = d.book || d.altBook, i = list.indexOf(code);
+				if (i > -1) list.splice(i, 1); else list.push(code);
 				t.setAttribute('aria-pressed', String(i < 0));
 				if (motionOK) g.fromTo(t, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' });
-				$q('#custom-count').textContent = B.books.length ? B.books.length + ' selected' : 'Any you like';
+				var count = $q('#custom-count');
+				if (count) count.textContent = B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical';
 				return updateSummary();
 			}
-			if (d.bookAll) {
-				var group = d.bookAll === 'DC' ? bible.DC_BOOKS.filter(function (u) { return bible.BIBLE_DATA[u]; }) : bible[d.bookAll + '_BOOKS'];
-				var allOn = group.every(function (u) { return B.books.indexOf(u) > -1; });
-				B.books = B.books.filter(function (u) { return group.indexOf(u) < 0; });
-				if (!allOn) B.books = B.books.concat(group);
+			if (d.groupAll) {
+				var groups = { OT: bible.OT_BOOKS, NT: bible.NT_BOOKS, DC: DC_LIST, TANAKH: bible.TANAKH_BOOKS, GOSPEL: bible.GOSPEL_BOOKS };
+				var group = groups[d.groupAll], key = d.groupAll === 'TANAKH' || d.groupAll === 'GOSPEL' ? 'altBooks' : 'books';
+				var allOn = hasAll(B[key], group);
+				B[key] = B[key].filter(function (u) { return group.indexOf(u) < 0; });
+				if (!allOn) B[key] = B[key].concat(group);
 				$$('.book-chip', t.closest('.book-group')).forEach(function (c) { c.setAttribute('aria-pressed', String(!allOn)); });
-				$q('#custom-count').textContent = B.books.length ? B.books.length + ' selected' : 'Any you like';
+				var cc = $q('#custom-count');
+				if (cc) cc.textContent = B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical';
 				return updateSummary();
 			}
-			if (d.total) {
-				var custom = d.total === 'custom';
-				if (!custom) B.total = +d.total;
-				$$('[data-total]', view).forEach(function (p) { p.setAttribute('aria-pressed', String(p === t)); });
-				$q('#custom-total').hidden = !custom;
-				if (custom) { var input = $q('#b-total'); input.focus(); input.select(); }
-				return updateSummary();
-			}
-			if (d.start) {
-				B.start = d.start;
-				$q('#b-start').value = B.start;
-				$$('[data-start]', view).forEach(function (p) { p.setAttribute('aria-pressed', String(p === t)); });
+			if (d.logic) {
+				B.logic = d.logic;
+				$$('[data-logic]', view).forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); });
 				return updateSummary();
 			}
 			if (d.day) {
@@ -769,41 +897,45 @@
 			}
 			if (d.days) {
 				B.days = d.days.split(',').map(Number);
-				$$('.weekday', view).forEach(function (w, k) {
-					w.setAttribute('aria-pressed', String(B.days.indexOf(k + 1) > -1));
-				});
+				$$('.weekday', view).forEach(function (w, k) { w.setAttribute('aria-pressed', String(B.days.indexOf(k + 1) > -1)); });
 				if (motionOK) g.fromTo($$('.weekday', view), { scale: 0.9 }, { scale: 1, duration: 0.4, stagger: 0.03, ease: 'back.out(3)' });
 				syncDayPills();
-				return updateSummary();
-			}
-			if (d.logic) {
-				B.logic = d.logic;
-				$$('[data-logic]', view).forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); });
 				return updateSummary();
 			}
 		});
 
 		view.addEventListener('input', function (e) {
-			if (e.target.id === 'b-total') {
-				var v = parseInt(e.target.value, 10);
-				if (v > 0) { B.total = Math.min(v, 3650); updateSummary(); }
+			var t = e.target;
+			if (t.id === 'b-total') {
+				var v = parseInt(t.value, 10);
+				if (v > 0) {
+					B.total = Math.min(v, 3650);
+					setPressed('[data-total]', function (p) { return +p.dataset.total === B.total; });
+					updateSummary();
+				}
 			}
-			if (e.target.id === 'b-start' && parseYmd(e.target.value)) {
-				B.start = e.target.value;
-				$$('[data-start]', view).forEach(function (p) { p.setAttribute('aria-pressed', String(p.dataset.start === B.start)); });
+			if (t.id === 'b-start' && parseYmd(t.value)) {
+				B.start = t.value;
+				setPressed('[data-start]', function (p) { return p.dataset.start === B.start; });
 				updateSummary();
 			}
 		});
 
 		view.addEventListener('change', function (e) {
-			var opt = e.target.dataset && e.target.dataset.opt;
-			if (opt) { B[opt] = e.target.checked; updateSummary(); }
+			var t = e.target;
+			if (t.dataset && t.dataset.opt) { B[t.dataset.opt] = t.checked; return updateSummary(); }
+			if (t.id === 'b-lang') B.lang = t.value;
+			if (t.id === 'b-urlversion') B.urlversion = t.value;
+			if (t.id === 'b-urlsite') {
+				B.urlsite = t.value;
+				$q('#b-version-row').hidden = B.urlsite === 'yallversion';
+			}
 		});
 	}
 
 	function syncDayPills() {
 		var key = B.days.slice().sort().join(',');
-		$$('#view-create [data-days]').forEach(function (p) { p.setAttribute('aria-pressed', String(p.dataset.days === key)); });
+		setPressed('[data-days]', function (p) { return p.dataset.days === key; });
 	}
 
 	/* ---------- My plan ---------- */
@@ -870,14 +1002,58 @@
 		return VIEWS.indexOf(h) > -1 ? h : null;
 	}
 
+	/* Nav "lens": an inverted copy of the tabs, clipped to a pill that springs to the active tab
+	   and leans a few pixels toward a hovered one (same idea as brisk.cool's NavPill). */
+	var lens = { x: 0, w: 0, top: 0, bottom: 0, hover: null, shown: false, tween: null };
+
+	function buildLens() {
+		var nav = $q('.tabbar'), tabs = $$('.tabbar > .tab');
+		var wrap = doc.createElement('div'), inner = doc.createElement('div');
+		wrap.className = 'lens-wrap';
+		wrap.setAttribute('aria-hidden', 'true');
+		inner.className = 'lens';
+		tabs.forEach(function (t, i) {
+			var copy = doc.createElement('span');
+			copy.className = 'tab';
+			copy.innerHTML = t.innerHTML;
+			inner.appendChild(copy);
+			t.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { lens.hover = i; moveIndicator(false); } });
+		});
+		wrap.appendChild(inner);
+		nav.appendChild(wrap);
+		nav.addEventListener('pointerleave', function () { if (lens.hover !== null) { lens.hover = null; moveIndicator(false); } });
+		if (window.ResizeObserver) new ResizeObserver(function () { moveIndicator(true); }).observe(nav);
+	}
+
+	function paintLens() {
+		var el = $q('.lens');
+		if (!el) return;
+		var right = el.clientWidth - lens.x - lens.w;
+		el.style.clipPath = 'inset(' + lens.top + 'px ' + right + 'px ' + lens.bottom + 'px ' + lens.x + 'px round 999px)';
+	}
+
 	function moveIndicator(instant) {
-		var tab = $q('.tab[aria-current="page"]'), ind = $q('.tab-indicator');
-		if (!tab) return;
-		var phone = window.innerWidth < 760, box;
-		if (phone) box = { x: tab.offsetLeft + (tab.offsetWidth - 56) / 2, y: tab.offsetTop + 3, width: 56, height: 30 };
-		else box = { x: tab.offsetLeft, y: tab.offsetTop, width: tab.offsetWidth, height: tab.offsetHeight };
-		if (g) g.to(ind, { x: box.x, y: box.y, width: box.width, height: box.height, opacity: 1, duration: instant || !motionOK ? 0 : 0.5, ease: 'power3.out' });
-		else Object.assign(ind.style, { transform: 'translate(' + box.x + 'px,' + box.y + 'px)', width: box.width + 'px', height: box.height + 'px', opacity: 1 });
+		var nav = $q('.tabbar'), wrap = $q('.lens-wrap'), tabs = $$('.tabbar > .tab');
+		if (!wrap) return;
+		var index = -1;
+		tabs.forEach(function (t, i) { if (t.getAttribute('aria-current') === 'page') index = i; });
+		if (index < 0) { wrap.style.opacity = 0; return; }
+		var tab = tabs[index];
+		var lean = lens.hover === null || lens.hover === index ? 0 : (lens.hover > index ? 4 : -4);
+		var tx = tab.offsetLeft + lean, tw = tab.offsetWidth;
+		lens.top = tab.offsetTop;
+		lens.bottom = nav.clientHeight - tab.offsetTop - tab.offsetHeight;
+		if (lens.tween) lens.tween.kill();
+		if (instant || !motionOK || !lens.shown) {
+			lens.x = tx;
+			lens.w = tw;
+			paintLens();
+		} else {
+			lens.tween = g.to(lens, { x: tx, w: tw, duration: 0.75, ease: 'back.out(1.25)', onUpdate: paintLens });
+		}
+		lens.shown = true;
+		wrap.style.opacity = 1;
+		nav.setAttribute('data-ready', '');
 	}
 
 	function renderView(view) {
@@ -893,7 +1069,7 @@
 		state.view = view;
 		doc.body.dataset.view = view;
 		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
-		$$('.tab').forEach(function (t) {
+		$$('.tabbar > .tab').forEach(function (t) {
 			if (t.dataset.tab === view) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
 		});
 		moveIndicator(instant);
@@ -924,7 +1100,6 @@
 
 	function bindEvents() {
 		window.addEventListener('hashchange', function () { show(routeFromHash() || 'home'); });
-		window.addEventListener('resize', function () { moveIndicator(true); });
 
 		doc.addEventListener('click', function (e) {
 			var t;
@@ -1029,6 +1204,7 @@
 
 	function boot() {
 		mountDisplayControls();
+		buildLens();
 		bindBuilder();
 		bindEvents();
 
@@ -1055,7 +1231,7 @@
 
 		if (motionOK) {
 			g.from('.brand', { y: -8, opacity: 0, duration: 0.6, ease: 'power3.out' });
-			g.from('.appbar .tab', { y: -6, opacity: 0, duration: 0.5, stagger: 0.05, delay: 0.05, ease: 'power3.out', clearProps: 'transform,opacity' });
+			g.from('.tabbar', { y: -8, opacity: 0, duration: 0.6, delay: 0.05, ease: 'power3.out', clearProps: 'transform,opacity' });
 		}
 	}
 
