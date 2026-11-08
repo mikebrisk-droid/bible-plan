@@ -228,7 +228,7 @@
 
 	function startPlan(params, meta, display) {
 		var q = toQuery(params, display);
-		state.active = { query: '?' + q.toString(), name: meta.name, planId: meta.planId || null };
+		state.active = { query: '?' + q.toString(), name: meta.name, named: !!meta.named, planId: meta.planId || null };
 		saveActive();
 		loadFromParams(q);
 		if (location.hash !== '#plan') location.hash = 'plan';
@@ -238,6 +238,7 @@
 
 	window.onPlanQuery = function (query) {
 		if (!state.active) return;
+		if (state.active.named && state.active.name) query += '&name=' + encodeURIComponent(state.active.name);
 		state.active.query = query;
 		saveActive();
 		history.replaceState(null, '', location.pathname + query + location.hash);
@@ -533,7 +534,8 @@
 			days: [1, 2, 3, 4, 5, 6, 7],
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
 			nodates: false, stats: false, dailystats: false, includeurls: false,
-			urlsite: 'biblegateway', urlversion: 'NIV'
+			urlsite: 'biblegateway', urlversion: 'NIV',
+			name: ''
 		};
 	}
 	resetBuilder();
@@ -732,6 +734,8 @@
 				pills('days', [['1,2,3,4,5,6,7', 'Every day'], ['2,3,4,5,6', 'Weekends off'], ['2,3,4,5,6,7', 'Sundays off'], ['1,2,3,4,5,6', 'Saturdays off']], B.days.slice().sort().join(',')) + '</div>';
 
 		} else {
+			h += '<div class="field"><label class="field-label" for="b-name">Plan name</label>' +
+				'<input class="input input-name" id="b-name" type="text" maxlength="60" autocomplete="off" placeholder="' + esc(builderName()) + '" value="' + esc(B.name) + '"></div>';
 			h += '<span class="field-label">Reading</span><div class="rows">' +
 				toggleRow('dailypsalm', 'Daily Psalm') + toggleRow('dailyproverb', 'Daily Proverb') +
 				toggleRow('otntoverlap', 'OT/NT overlap', 'Read from both testaments each day') + toggleRow('reverse', 'Reverse') + '</div>' +
@@ -800,8 +804,12 @@
 	}
 
 	var summaryTimer, shownMinutes = null;
+	function planTitle() { return B.name.trim() || builderName(); }
+
 	function updateSummary() {
-		$q('#sum-title').textContent = builderName();
+		$q('#sum-title').textContent = planTitle();
+		var nameInput = $q('#b-name');
+		if (nameInput) nameInput.placeholder = builderName();
 		var next = $q('#step-next'), meta = $q('#sum-meta'), end = $q('#b-end');
 		if (end) end.textContent = endLabel();
 		if (!builderValid()) {
@@ -838,7 +846,7 @@
 
 			if (t.id === 'step-next') {
 				if (B.step < LAST) goStep(B.step + 1);
-				else if (builderValid()) startPlan(builderParams(), { name: builderName() }, builderDisplay());
+				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim() }, builderDisplay());
 				return;
 			}
 			if (t.id === 'step-back') return goStep(B.step - 1);
@@ -917,6 +925,11 @@
 
 		view.addEventListener('input', function (e) {
 			var t = e.target;
+			if (t.id === 'b-name') {
+				B.name = t.value;
+				$q('#sum-title').textContent = planTitle();
+				return;
+			}
 			if (t.id === 'b-total') {
 				var v = parseInt(t.value, 10);
 				if (v > 0) {
@@ -930,6 +943,10 @@
 				setPressed('[data-start]', function (p) { return p.dataset.start === B.start; });
 				updateSummary();
 			}
+		});
+
+		view.addEventListener('keydown', function (e) {
+			if (e.target.id === 'b-name' && e.key === 'Enter') { e.preventDefault(); $q('#step-next').click(); }
 		});
 
 		view.addEventListener('change', function (e) {
@@ -1242,7 +1259,11 @@
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
 			if ((t = e.target.closest('[data-close-sheet]'))) return sheets.close(t.closest('.sheet'));
-			if ((t = e.target.closest('[data-edit-plan]'))) { builderFrom(currentParams()); return; }
+			if ((t = e.target.closest('[data-edit-plan]'))) {
+				builderFrom(currentParams());
+				if (state.active && state.active.named) B.name = state.active.name;
+				return;
+			}
 
 			if ((t = e.target.closest('.layout-switch [data-format]'))) {
 				$$('.layout-switch button').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); });
@@ -1353,8 +1374,8 @@
 
 		if (linked) {
 			if (!state.active || state.active.query !== location.search) {
-				var match = matchTemplate(params);
-				state.active = { query: location.search, name: match ? match.title : null, planId: match ? match.id : null };
+				var match = matchTemplate(params), given = (params.get('name') || '').trim().slice(0, 60);
+				state.active = { query: location.search, name: given || (match ? match.title : null), named: !!given, planId: match && !given ? match.id : null };
 				saveActive();
 			}
 			loadFromParams(params);
