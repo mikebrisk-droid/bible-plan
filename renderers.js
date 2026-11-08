@@ -16,8 +16,12 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 			bookInfo = dayInfo.chapters.length > 0 ? bible.BIBLE_DATA[dayInfo.chapters[0].usfm] : null;
 
 		var dayKey = currentKey + '-' + i.toString();
-		//var fixeddate = dayInfo.date.addDays(1);
-		//html.push('<tr>');
+
+		// rest days have nothing to show in a list
+		if (dayInfo.formattedReading == '') {
+			continue;
+		}
+
 		if (lastMonth != dayInfo.date.getMonth() && !noDates) {
 			if (monthOpen) {
 				html.push('</div>');
