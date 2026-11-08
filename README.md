@@ -27,5 +27,5 @@ http://localhost:8000/
 - The app is client-side HTML/CSS/JavaScript.
 - Script and stylesheet references were normalized to local files.
 - Sample plan links were changed from the original domain to local relative URLs.
-- The original footer attribution to John Dyer remains in place.
+- The plan engine is by John Dyer; his license and author notes remain in the source files.
 - For Vercel, add `VITE_YOUVERSION_APP_KEY` as an environment variable. `YVP_APP_KEY` is also supported as an alias. The deployed app uses `api/youversion/passage.js` so the key is not exposed to the browser.
