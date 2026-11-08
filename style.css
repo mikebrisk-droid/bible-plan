@@ -954,8 +954,19 @@ main {
 .switch:checked { background: var(--ok); }
 .switch:checked::after { transform: translateX(18px); }
 
+.row > [data-slot] {
+	display: flex;
+	flex: none;
+	justify-content: flex-end;
+	min-width: 0;
+}
+
 .rows select {
-	max-width: 52%;
+	flex: none;
+	width: 184px;
+	max-width: 55vw;
+	margin-left: auto;
+	text-overflow: ellipsis;
 	height: 38px;
 	padding: 0 32px 0 12px;
 	border: 0;
