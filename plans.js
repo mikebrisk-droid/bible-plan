@@ -1008,6 +1008,17 @@ function formatPericopeRange(lang, pericopes, includeUrls, urlSite, urlVersion) 
 	//return formatted;
 }
 
+// translation picker value -> [provider, version] on verseatatime.com
+var VERSE_AT_A_TIME_VERSIONS = {
+	AMP: ['youversion', '1588'],
+	CSB: ['api-bible', 'a556c5305ee15c3f-01'],
+	ESV: ['esv', 'ESV'],
+	KJV: ['kjv-study', 'kjv-study'],
+	NASB: ['youversion', '2692'],
+	NIV: ['youversion', '111'],
+	NLT: ['nlt', 'NLT']
+};
+
 function createUrl(verseList, bookUsfm, chapter, site, version) {
 
 	if (!site || site == '') {
@@ -1045,10 +1056,24 @@ function createUrl(verseList, bookUsfm, chapter, site, version) {
 			break;
 		
 		case 'yallversion':
-	
+
 			url = `https://yallversion.com/${bookUsfm}/${chapter}`;
-			
-			break;			
+
+			break;
+
+		case 'verseatatime':
+			// verseatatime.com/?ref=JHN.3&provider=…&version=… ; translations it doesn't carry
+			// leave provider/version off so the site uses the reader's own choice
+			var vat = VERSE_AT_A_TIME_VERSIONS[version],
+				vatParams = new URLSearchParams({ ref: bookUsfm + '.' + chapter });
+
+			if (vat) {
+				vatParams.set('provider', vat[0]);
+				vatParams.set('version', vat[1]);
+			}
+			url = 'https://verseatatime.com/?' + vatParams.toString();
+
+			break;
 	}
 
 	return url;
