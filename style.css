@@ -1531,15 +1531,131 @@ main {
 }
 .reading-head h2 { flex: 1; min-width: 0; font-size: 22px; }
 #reading-modal-content {
-	padding: 20px 24px 40px;
-	font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-	font-size: 18px;
-	line-height: 1.7;
+	--serif: 'New York', 'Iowan Old Style', 'Source Serif 4', Georgia, serif;
+	--red-letter: #a8382b;
+	padding: 28px clamp(20px, 6vw, 56px) 56px;
+	color: var(--ink);
+	font-family: var(--serif);
+	font-size: 19px;
+	line-height: 1.75;
+	font-kerning: normal;
+	hanging-punctuation: first;
 }
+[data-theme="dark"] #reading-modal-content { --red-letter: #f08e7e; }
 #reading-modal-content:focus { outline: none; }
-.reading-passage + .reading-passage { margin-top: 32px; }
-.reading-passage h3 { margin-bottom: 10px; font-size: 20px; }
-.reading-passage-text p { margin: 0 0 1em; }
+
+/* Passage text arrives as USFM-style markup from YouVersion; these rules set it like a printed Bible */
+.reading-passage { max-width: 36em; margin: 0 auto; }
+.reading-passage + .reading-passage { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line); }
+.reading-passage h3 {
+	margin-bottom: 20px;
+	font-family: var(--font-ui);
+	font-size: 30px;
+	font-weight: 700;
+	letter-spacing: -0.03em;
+}
+
+.reading-passage-text > div > div { margin: 0; }
+
+/* paragraphs */
+.reading-passage-text .p,
+.reading-passage-text .m,
+.reading-passage-text .pi,
+.reading-passage-text .pi1,
+.reading-passage-text .mi,
+.reading-passage-text .pc,
+.reading-passage-text .nb { margin: 0 0 0.85em; }
+.reading-passage-text .pi,
+.reading-passage-text .pi1,
+.reading-passage-text .mi { padding-left: 1.5em; }
+.reading-passage-text .pc { text-align: center; }
+
+/* poetry: hanging indents by level, stanzas tight */
+.reading-passage-text .q,
+.reading-passage-text .q1,
+.reading-passage-text .q2,
+.reading-passage-text .q3,
+.reading-passage-text .q4,
+.reading-passage-text .qm,
+.reading-passage-text .qm1,
+.reading-passage-text .qm2 {
+	margin: 0;
+	padding-left: 1.6em;
+	text-indent: -1.1em;
+}
+.reading-passage-text .q2,
+.reading-passage-text .qm2 { padding-left: 2.8em; }
+.reading-passage-text .q3 { padding-left: 4em; }
+.reading-passage-text .q4 { padding-left: 5.2em; }
+.reading-passage-text :is(.p, .m, .yv-h, .d) + :is(.q, .q1, .q2, .q3, .q4) { margin-top: 0.5em; }
+.reading-passage-text :is(.q, .q1, .q2, .q3, .q4) + :is(.p, .m) { margin-top: 0.85em; }
+.reading-passage-text .b { height: 0.75em; }
+.reading-passage-text .qr,
+.reading-passage-text .qs { text-align: right; font-style: italic; color: var(--ink-2); }
+
+/* headings */
+.reading-passage-text .yv-h {
+	margin: 1.6em 0 0.5em;
+	font-family: var(--font-ui);
+	font-size: 15px;
+	font-weight: 650;
+	line-height: 1.35;
+	letter-spacing: -0.01em;
+	color: var(--ink);
+}
+.reading-passage-text .yv-h:first-child { margin-top: 0; }
+.reading-passage-text .yv-h .it { font-style: normal; }
+.reading-passage-text .cl { display: none; }
+.reading-passage-text .r,
+.reading-passage-text .mr,
+.reading-passage-text .sr {
+	margin: -0.3em 0 0.8em;
+	font-family: var(--font-ui);
+	font-size: 13px;
+	color: var(--ink-3);
+}
+.reading-passage-text .qa {
+	margin-top: 1.4em;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--ink-3);
+}
+.reading-passage-text .d {
+	margin: 0 0 0.8em;
+	font-style: italic;
+	color: var(--ink-2);
+}
+
+/* verse numbers */
+.reading-passage-text .yv-vlbl {
+	position: relative;
+	top: -0.5em;
+	margin: 0 0.3em 0 0.15em;
+	font-family: var(--font-ui);
+	font-size: 0.58em;
+	font-weight: 700;
+	line-height: 0;
+	color: var(--ink-3);
+	font-variant-numeric: tabular-nums;
+	user-select: none;
+}
+.reading-passage-text :is(.p, .m, .q1, .q) > .yv-v:first-child + .yv-vlbl { margin-left: 0; }
+
+/* inline character styles */
+.reading-passage-text .it,
+.reading-passage-text .tl,
+.reading-passage-text .em,
+.reading-passage-text .add { font-style: italic; }
+.reading-passage-text .nd,
+.reading-passage-text .sc {
+	font-variant: small-caps;
+	letter-spacing: 0.03em;
+}
+.reading-passage-text .wj { color: var(--red-letter); }
+.reading-passage-text .bd { font-weight: 700; }
+
 .reading-modal-message { font-family: var(--font-ui); font-size: 15px; color: var(--ink-2); }
 body.reading-modal-open,
 body.has-sheet { overflow: hidden; }
