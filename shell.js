@@ -985,7 +985,24 @@
 		g.fromTo(items, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.015, ease: 'power2.out', clearProps: 'transform,opacity' });
 	}
 
+	/* Weeks layout: a week whose readings are all checked dims back so the weeks ahead stand out.
+	   `animate` marks the moment a week becomes complete. */
+	function markCompleteWeeks(animate) {
+		$$('#output .week-block').forEach(function (block) {
+			var checks = $$('.reading-check', block);
+			var complete = checks.length > 0 && checks.every(function (c) { return c.checked; });
+			var was = block.classList.contains('is-complete');
+			if (complete === was) return;
+			block.classList.toggle('is-complete', complete);
+			if (animate && complete && motionOK) {
+				g.fromTo(block, { scale: 1 }, { scale: 0.97, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.inOut', clearProps: 'transform' });
+				g.fromTo($q('.week', block), { '--done': 0 }, { '--done': 1, duration: 0.5, delay: 0.15, ease: 'back.out(3)' });
+			}
+		});
+	}
+
 	window.onPlanRendered = function () {
+		markCompleteWeeks(false);
 		if (state.view === 'plan' && state.active) {
 			updatePlanHead();
 			updateProgress(true);
@@ -1163,6 +1180,7 @@
 				setRead(key, done);
 				var box = doc.getElementById(key);
 				if (box) box.checked = done;
+				markCompleteWeeks(false);
 				t.classList.toggle('is-done', done);
 				t.innerHTML = done ? icon('check') + '<span>Done</span>' : '<span>Mark as read</span>';
 				if (motionOK && done) g.fromTo(t, { scale: 0.92 }, { scale: 1, duration: 0.7, ease: 'elastic.out(1, 0.45)' });
@@ -1214,6 +1232,7 @@
 		$q('#output').addEventListener('change', function (e) {
 			if (!e.target.classList.contains('reading-check')) return;
 			updateProgress(true);
+			markCompleteWeeks(true);
 			if (motionOK && e.target.checked) g.fromTo(e.target, { scale: 0.6 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
 		});
 

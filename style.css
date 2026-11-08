@@ -1224,7 +1224,29 @@ main {
 	break-inside: avoid;
 }
 .week-block .entry:first-child { padding: 0 4px 8px; }
-.week-block .week { font-weight: 680; letter-spacing: -0.02em; font-size: 16px; }
+.week-block .week {
+	--done: 1;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 680;
+	letter-spacing: -0.02em;
+	font-size: 16px;
+}
+
+/* A finished week dims back; hovering brings it up again so readings can still be unchecked */
+.week-block { transition: opacity .45s var(--ease); }
+.plan-checkbox .week-block.is-complete { opacity: .45; }
+.plan-checkbox .week-block.is-complete:hover,
+.plan-checkbox .week-block.is-complete:focus-within { opacity: 1; }
+.plan-checkbox .week-block.is-complete .week::after {
+	content: '';
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6.5 12.5 3.5 3.5 7.5-8'/%3E%3C/svg%3E") center / 12px no-repeat;
+	scale: var(--done);
+}
 .plan-weeks .entry:not(:first-child) {
 	display: grid;
 	grid-template-columns: 46px 1fr;
