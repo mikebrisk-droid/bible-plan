@@ -247,7 +247,104 @@ function buildcsv(lang, data, startDate, duration, bookList, dayList, showStats,
 
 
 
+// One calendar per month, like a wall calendar: every date of the month in place, plan days
+// filled in, dates outside the plan faded. "Remove dates" keeps the old undated running grid.
 function buildcalendar(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates, includeUrls) {
+
+	if (noDates) {
+		return buildcalendarContinuous(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates, includeUrls);
+	}
+
+	var today = new Date(),
+		html = [],
+		byDate = {},
+		months = [];
+
+	function key(date) {
+		return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
+	}
+
+	data.days.forEach(function(dayInfo, index) {
+		byDate[key(dayInfo.date)] = { dayInfo: dayInfo, index: index };
+		var monthKey = dayInfo.date.getFullYear() + '-' + dayInfo.date.getMonth();
+		if (months.indexOf(monthKey) < 0) {
+			months.push(monthKey);
+		}
+	});
+
+	// weekday names, Sunday first, in the plan's language
+	var weekdays = [],
+		sunday = new Date(2023, 0, 1);
+	for (var w = 0; w < 7; w++) {
+		weekdays.push('<th>' + sunday.addDays(w).toLocaleDateString(lang, {weekday: 'long'}) + '</th>');
+	}
+
+	html.push('<div class="plan-calendars">');
+
+	months.forEach(function(monthKey) {
+		var parts = monthKey.split('-'),
+			year = parseInt(parts[0], 10),
+			month = parseInt(parts[1], 10),
+			first = new Date(year, month, 1),
+			daysInMonth = new Date(year, month + 1, 0).getDate(),
+			cells = [];
+
+		for (var blank = 0; blank < first.getDay(); blank++) {
+			cells.push('<td class="is-blank"></td>');
+		}
+
+		for (var d = 1; d <= daysInMonth; d++) {
+			var date = new Date(year, month, d),
+				entry = byDate[key(date)];
+
+			if (!entry) {
+				cells.push('<td class="is-outside"><span class="date">' + d + '</span></td>');
+				continue;
+			}
+
+			var dayInfo = entry.dayInfo,
+				bookInfo = dayInfo.chapters.length > 0 ? bible.BIBLE_DATA[dayInfo.chapters[0].usfm] : null,
+				dayKey = currentKey + '-' + entry.index,
+				classes = (bookInfo != null ? 'section-' + bible.SECTIONS[bookInfo.section] : '') + (isSameDay(today, date) ? ' is-today' : '');
+
+			cells.push('<td class="' + classes + '"><span class="date">' + d + '</span>' +
+				(dayInfo.formattedReading != '' ?
+					`<span class="verses">
+						<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
+						${createReadingButton(dayInfo)}
+					</span>` +
+					(showDailyStats ?
+						'<span class="stats">verses: ' + dayInfo.versesForToday + '<br>' +
+							(dayInfo.wordsForToday > 0 ? 'words: ' + dayInfo.wordsForToday + '<br>minutes: ' + (dayInfo.wordsForToday/250).toFixed(2) : '') +
+						'</span>'
+						: '')
+					: '') +
+			'</td>');
+		}
+
+		while (cells.length % 7 !== 0) {
+			cells.push('<td class="is-blank"></td>');
+		}
+
+		html.push('<section class="calendar-month">');
+		html.push('<h3 class="calendar-month-title">' + first.toLocaleDateString(lang, {month: 'long', year: 'numeric'}) + '</h3>');
+		html.push('<table class="plan-calendar"><thead><tr>' + weekdays.join('') + '</tr></thead><tbody>');
+		for (var r = 0; r < cells.length; r += 7) {
+			html.push('<tr>' + cells.slice(r, r + 7).join('') + '</tr>');
+		}
+		html.push('</tbody></table></section>');
+	});
+
+	html.push('</div>');
+
+	if (showStats) {
+		html.unshift(createFinalStats(data.days));
+	}
+
+	return html.join('\n');
+}
+
+function buildcalendarContinuous(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates, includeUrls) {
 	
 	//var daysOfWeek = ['Sunday','Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 	
