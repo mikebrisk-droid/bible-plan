@@ -1096,6 +1096,49 @@
 		}
 	}
 
+	/* ---------- Back to top ---------- */
+
+	function bindBackToTop() {
+		var btn = $q('.to-top'), shown = false, ticking = false;
+
+		function update() {
+			ticking = false;
+			// on Create, float just above the builder's bottom bar wherever it currently sits
+			var bar = state.view === 'create' ? $q('.builder-bar') : null;
+			if (bar) {
+				var above = window.innerHeight - bar.getBoundingClientRect().top;
+				btn.style.bottom = Math.max(24, above + 12) + 'px';
+			} else {
+				btn.style.bottom = '';
+			}
+			var show = window.scrollY > window.innerHeight * 0.9;
+			if (show === shown) return;
+			shown = show;
+			if (motionOK) {
+				g.killTweensOf(btn);
+				if (show) {
+					btn.hidden = false;
+					g.fromTo(btn, { opacity: 0, y: 16, scale: 0.85 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'back.out(2)' });
+				} else {
+					g.to(btn, { opacity: 0, y: 12, scale: 0.9, duration: 0.2, ease: 'power2.in', onComplete: function () { btn.hidden = true; } });
+				}
+			} else {
+				btn.hidden = !show;
+			}
+		}
+
+		window.addEventListener('scroll', function () {
+			if (!ticking) { ticking = true; requestAnimationFrame(update); }
+		}, { passive: true });
+		window.addEventListener('hashchange', function () { setTimeout(update, 400); });
+
+		btn.addEventListener('click', function () {
+			window.scrollTo({ top: 0, behavior: motionOK ? 'smooth' : 'auto' });
+			var focusTarget = $q('.tabbar > .tab[aria-current="page"]');
+			if (focusTarget) setTimeout(function () { focusTarget.focus({ preventScroll: true }); }, motionOK ? 500 : 0);
+		});
+	}
+
 	/* ---------- Global events ---------- */
 
 	function bindEvents() {
@@ -1205,6 +1248,7 @@
 	function boot() {
 		mountDisplayControls();
 		buildLens();
+		bindBackToTop();
 		bindBuilder();
 		bindEvents();
 
