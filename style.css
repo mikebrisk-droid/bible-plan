@@ -1301,8 +1301,8 @@ main {
 
 /* Books */
 .plan-books { font-size: 12px; }
-.plan-books .book { display: flex; gap: 10px; margin-bottom: 6px; }
-.plan-books .name { width: 120px; flex: none; }
+.plan-books .book { display: flex; gap: 10px; margin-bottom: 10px; }
+.plan-books .name { width: 132px; flex: none; }
 .plan-books .chapters { display: flex; flex-wrap: wrap; gap: 4px; }
 .plan-books .box {
 	display: inline-block;
@@ -1311,7 +1311,7 @@ main {
 	background: var(--bg);
 	line-height: 1.1;
 }
-.plan-books .title { display: block; font-weight: 700; background: transparent; padding-left: 0; }
+.plan-books .title { display: block; padding: 5px 10px; font-weight: 700; }
 
 /* Wheels */
 #output svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
