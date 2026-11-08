@@ -34,7 +34,7 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 
 			html.push(
 			`<div class="verses"> 
-				<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) ? " checked" : ""} />
+				<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
 			</div>
 			<div class="date">${noDates ? '' : dayInfo.date.monthAbbr(lang) + ' ' + (dayInfo.date.getDate())}</div>
 			<div class="passage-cell">
@@ -101,7 +101,7 @@ function buildweeks(lang, data, startDate, duration, bookList, dayList, showStat
 			var readingButton = createReadingButton(dayInfo);
 			html.push(
 				`<div class="verses"> 
-					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) ? " checked" : ""} />
+					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
 					${readingButton}
 				</div>`);			
 			//html.push('<div class="verses">' + (includeUrls ? dayInfo.formattedReadingUrls : dayInfo.formattedReading) + '</div>');		
@@ -305,7 +305,7 @@ function buildcalendar(lang, data, startDate, duration, bookList, dayList, showS
 			//'<span class="verses">' + formatChapterRange(dayInfo.chapters) + '</span>' + 
 			(dayInfo.formattedReading != '' ? 
 				`<span class="verses"> 
-					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) ? " checked" : ""} />
+					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
 					${createReadingButton(dayInfo)}
 				</span>` +
 				(showDailyStats ?
@@ -351,7 +351,6 @@ function createFinalStats(days) {
 	var verseStats = getPlanStats(days),
 		wordStats = getPlanWordStats(days);
 
-	console.log('STATS',verseStats);
 	
 	var	html = `
 			<div class="plan-stats">
@@ -1118,7 +1117,6 @@ function renderSvgCircleCal(layers) {
 				svg.appendChild(monthLabel);
 				*/
 
-				console.log(segment.monthLabel, segment.firstIsSunday, segment.weeksInMonth, start);
 
 				const weekWidth = 360/layer.segments.length;
 				const arcId = `arc-${layerIndex}-${i}`;

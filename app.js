@@ -64,33 +64,27 @@ function initSettingsToggle() {
 }
 
 function initThemeToggle() {
-	var storageKey = 'brpg-theme',
-		button = $('#toggle-theme'),
-		storedTheme = localStorage.getItem(storageKey),
+	var storageKey = 'lamp-theme',
+		stored = null,
 		prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-	if (!button.length) {
-		return;
-	}
+	try { stored = localStorage.getItem(storageKey); } catch (e) {}
 
-	function setTheme(theme) {
+	function setTheme(theme, persist) {
 		var isDark = theme === 'dark';
-
-		$('body').toggleClass('theme-dark', isDark);
-		button
+		document.documentElement.setAttribute('data-theme', theme);
+		$('.js-theme-toggle')
 			.attr('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode')
-			.attr('title', isDark ? 'Switch to light mode' : 'Switch to dark mode')
-			.find('.theme-icon')
-				.toggleClass('theme-icon-moon', isDark)
-				.toggleClass('theme-icon-sun', !isDark);
-
-		localStorage.setItem(storageKey, theme);
+			.attr('aria-pressed', isDark ? 'true' : 'false');
+		if (persist) {
+			try { localStorage.setItem(storageKey, theme); } catch (e) {}
+		}
 	}
 
-	setTheme('light');
+	setTheme(stored || (prefersDark ? 'dark' : 'light'), false);
 
-	button.on('click', function() {
-		setTheme($('body').hasClass('theme-dark') ? 'light' : 'dark');
+	$(document).on('click', '.js-theme-toggle', function() {
+		setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark', true);
 	});
 }
 
@@ -105,9 +99,13 @@ function initReadingModal() {
 	}
 
 	function closeModal() {
-		modal.attr('aria-hidden', 'true');
+		if (window.lampSheet) {
+			window.lampSheet.close(modal[0], function() { content.empty(); });
+		} else {
+			modal.attr('aria-hidden', 'true');
+			content.empty();
+		}
 		$('body').removeClass('reading-modal-open');
-		content.empty();
 	}
 
 	function renderPassageData(payload) {
@@ -174,7 +172,7 @@ function initReadingModal() {
 			});
 	}
 
-	$('#output').on('click', '.reading-open', function() {
+	$(document).on('click', '.reading-open', function() {
 		var button = $(this),
 			url = button.attr('data-reading-url'),
 			readingTitle = button.attr('data-reading-title') || 'Reading';
@@ -185,7 +183,11 @@ function initReadingModal() {
 
 		title.text(readingTitle);
 		link.attr('href', url);
-		modal.attr('aria-hidden', 'false');
+		if (window.lampSheet) {
+			window.lampSheet.open(modal[0]);
+		} else {
+			modal.attr('aria-hidden', 'false');
+		}
 		$('body').addClass('reading-modal-open');
 		$('#reading-modal-close').focus();
 		loadPassage(button, url);
@@ -454,7 +456,11 @@ function updateDisplay() {
 	}
 
 	//$('#main-header h1').html(title);
-	$('#output').prepend( $('<h1 contenteditable="true">' + currentTitle + '</h1><h6>biblereadingplangenerator.com</h6>') );
+	$('#output').prepend( $('<h1 class="print-only">' + escapeHtml(currentTitle) + '</h1>') );
+
+	if (typeof window.onPlanRendered === 'function') {
+		window.onPlanRendered();
+	}
 
 }
 
@@ -492,13 +498,16 @@ function generate(lang, format, doc) {
 	}
 
 	var data = getPlanData(lang, order, startDate, duration, books, daysOfWeek, $('#options-dailypsalm').is(':checked'), $('#options-dailyproverb').is(':checked'), $('#options-otntoverlap').is(':checked'), $('#options-reverse').is(':checked'), $('#options-logic').val(), $('#options-includeurls').is(':checked'), $('#options-urlsite').val(), $('#options-urlversion').val());
+	if (format !== 'ics' && format !== 'csv') {
+		window.lastPlanDays = data.days.slice();
+	}
 	var code = window['build' + format](lang, data, startDate, duration, books, daysOfWeek, $('#options-stats').is(':checked'), $('#options-dailystats').is(':checked'), $('#options-nodates').is(':checked'), $('#options-includeurls').is(':checked'));	
 	
 	return code;
 }
 
-let currentKey = '';
-let currentTitle = '';
+var currentKey = '';
+var currentTitle = '';
 
 function updateUrlAndTitle() {
 	// params
@@ -549,35 +558,32 @@ function updateUrlAndTitle() {
 	// things that affect the overall plan (missing: overlap)
 	currentKey = [start,total,order,logic,daysofweek,books,dailypsalm,dailyproverb].join('|');
 
-	// update URL
-	if (!window.stillwordHome) history.replaceState({}, 'page', 
-				'?start=' + start + 
-				'&total=' + total + 
-				'&format=' + format + 
-				'&order=' + order + 
-				'&daysofweek=' + daysofweek + 
-				'&books=' + books.join(',') + 
-				'&lang=' + lang + 
-				'&logic=' + logic + 
-			
+	// the shell decides when to write this to the address bar
+	window.currentQuery = '?start=' + start +
+				'&total=' + total +
+				'&format=' + format +
+				'&order=' + order +
+				'&daysofweek=' + daysofweek +
+				'&books=' + books.join(',') +
+				'&lang=' + lang +
+				'&logic=' + logic +
 				'&checkbox=' + ($('#options-checkbox').is(':checked') ? '1' : '0') +
 				'&colors=' + ($('#options-sectioncolors').is(':checked') ? '1' : '0') +
-				'&dailypsalm=' + ($('#options-dailypsalm').is(':checked') ? '1' : '0') +
-				'&dailyproverb=' + ($('#options-dailyproverb').is(':checked') ? '1' : '0') +
+				'&dailypsalm=' + dailypsalm +
+				'&dailyproverb=' + dailyproverb +
 				'&otntoverlap=' + ($('#options-otntoverlap').is(':checked') ? '1' : '0') +
 				'&reverse=' + ($('#options-reverse').is(':checked') ? '1' : '0') +
 				'&stats=' + ($('#options-stats').is(':checked') ? '1' : '0') +
 				'&dailystats=' + ($('#options-dailystats').is(':checked') ? '1' : '0') +
 				'&nodates=' + ($('#options-nodates').is(':checked') ? '1' : '0') +
-				
 				'&includeurls=' + ($('#options-includeurls').is(':checked') ? '1' : '0') +
 				'&urlsite=' + $('#options-urlsite').val() +
-				'&urlversion=' + $('#options-urlversion').val() +
-				
-		  		''		
-				);
+				'&urlversion=' + $('#options-urlversion').val();
 
-	
+	if (typeof window.onPlanQuery === 'function') {
+		window.onPlanQuery(window.currentQuery);
+	}
+
 	var title = '';
 	
 
@@ -675,7 +681,6 @@ function updateUrlAndTitle() {
         title += ')';
     }
 	
-	document.title = title + ' | Bible Reading Plan Generator';
 
 	currentTitle = title;
 }
@@ -689,7 +694,6 @@ function updateBookLists() {
 			book = bible.BIBLE_DATA[ usfm ],
 			newName = bible.getName(book, lang);
 
-		console.log(i, newName);
 
 		$(`label input[value="${usfm}"]`).siblings('span').html(newName);
 	}
@@ -751,9 +755,18 @@ function createBookLists() {
 }
 
 
-function startup() {
+function resetControls() {
+	$('#settings, #display-sheet').find('input[type=checkbox]').prop('checked', false).prop('disabled', false);
+	$('#settings input[type=radio]').prop('checked', false);
+	$('#options-logic').val('words');
+	$('#options-urlsite').val('biblegateway');
+	$('#options-urlversion').val('NIV').show();
+}
 
-	var urlParams = new URLSearchParams(window.location.search);
+function loadFromParams(urlParams) {
+
+	urlParams = urlParams || new URLSearchParams(window.location.search);
+	resetControls();
 
 	// lang
 	var lang = '';
@@ -1015,6 +1028,10 @@ function startup() {
 	}		
 	
 
+	if ($('#options-urlsite').val() == 'yallversion') {
+		$('#options-urlversion').hide();
+	}
+
 	updateDisplay();
 }
-startup();
+window.loadFromParams = loadFromParams;

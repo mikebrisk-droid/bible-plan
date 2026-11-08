@@ -516,21 +516,12 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 	});
 
 	// output results
-	console.log('PLAN STATS', 'logic=',logic);
-	console.log('days', numberOfDays, 'filled', data.days.filter(day => day.versesForToday > 0).length);
-	console.log('chapters', data.chapterGroups[0].chapters.length);
-	console.log('pericopes', data.chapterGroups[0].pericopes.length);
-	console.log('chaptersPerDay', data.chapterGroups[0].chaptersPerDay);
-	console.log('pericopesPerDay', data.chapterGroups[0].pericopesPerDay);
-	console.log('versesPerDay', data.chapterGroups[0].versesPerDay);
-	console.log('wordsPerDay', data.chapterGroups[0].wordsPerDay);
 
 	var versesPerDay = data.days.filter(day => day.versesForToday > 0).map(day => day.versesForToday);
 	var minVerses = Math.min(...versesPerDay);
 	var maxVerses = Math.max(...versesPerDay);
 
 	var avgVerses = versesPerDay.reduce((a,b) => a + b, 0) / versesPerDay.length;
-	console.log('verses', minVerses, maxVerses, avgVerses);
 
 	// var wordsPerDay = data.days.map(day => day.wordsForToday);
 	// var minWords = Math.min(...wordsPerDay);
@@ -582,7 +573,6 @@ function optimizePericopes(days) {
        
     } while (attempts < max && improved)
 
-    console.log('attempts', attempts);
 
     return results;
 }

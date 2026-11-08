@@ -1,6 +1,9 @@
 //  date helpers
 Date.prototype.addDays = function(d) {
-	return new Date(this.getTime() + d*24*60*60*1000);
+	// calendar days, so daylight-saving changes never shift a reading to the wrong date
+	var next = new Date(this.getTime());
+	next.setDate(next.getDate() + d);
+	return next;
 }
 Date.prototype.incrimentDay = function() {
     var next = new Date(this);
@@ -73,3 +76,16 @@ var saveData = (function () {
         window.URL.revokeObjectURL(url);
     };
 }());
+
+function saveData(blob, fileName) {
+	var url = URL.createObjectURL(blob),
+		link = document.createElement('a');
+	link.href = url;
+	link.download = fileName;
+	document.body.appendChild(link);
+	link.click();
+	setTimeout(function() {
+		URL.revokeObjectURL(url);
+		link.remove();
+	}, 100);
+}
