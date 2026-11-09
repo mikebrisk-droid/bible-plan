@@ -83,9 +83,10 @@
 
 	var FILTERS = [['all', 'All'], ['whole', 'Whole Bible'], ['ot', 'Old Testament'], ['nt', 'New Testament'], ['short', '3 months or less']];
 
-	/* Plan covers: square images in assets/plans, named by each plan's art key */
+	/* Plan covers: one .webp per art key. Sets: assets/plans/ (glow), assets/plans-paper/ (paper cut) */
+	var COVER_SET = 'assets/plans-paper/';
 	function cover(art) {
-		return '<img src="assets/plans/' + (art || 'sun') + '.webp" alt="" width="284" height="284" decoding="async">';
+		return '<img src="' + COVER_SET + (art || 'sun') + '.webp" alt="" width="284" height="284" decoding="async">';
 	}
 
 	/* ---------- Plan math (uses the engine directly, without touching the form) ---------- */
