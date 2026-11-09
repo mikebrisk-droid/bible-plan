@@ -1071,6 +1071,8 @@ function createUrl(verseList, bookUsfm, chapter, site, version) {
 				vatParams.set('provider', vat[0]);
 				vatParams.set('version', vat[1]);
 			}
+			// open on the Bible tab rather than Home
+			vatParams.set('view', 'bible');
 			url = 'https://verseatatime.com/?' + vatParams.toString();
 
 			break;
