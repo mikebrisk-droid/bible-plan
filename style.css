@@ -237,13 +237,19 @@ main {
 }
 
 /* Progressive blur: six stacked backdrop blurs, each masked to a band, so content is
-   heavily blurred at the very top and eases back to sharp just below the bar. */
+   heavily blurred at the very top and eases back to sharp just below the bar.
+   It stays off at the top of the page and fades in once the page scrolls (--k, toggled
+   by html.is-scrolled in shell.js); --k is registered so the blur itself can animate. */
+@property --k { syntax: '<number>'; inherits: true; initial-value: 1; }
 .appbar-blur {
 	position: absolute;
 	inset: 0 0 -40px;
 	z-index: -1;
 	pointer-events: none;
+	--k: 0;
+	transition: --k .35s var(--ease);
 }
+.is-scrolled .appbar-blur { --k: 1; }
 .appbar-blur::after {
 	content: '';
 	position: absolute;
@@ -252,14 +258,15 @@ main {
 		color-mix(in srgb, var(--bg) 88%, transparent) 0%,
 		color-mix(in srgb, var(--bg) 64%, transparent) 55%,
 		color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+	opacity: var(--k);
 }
 .appbar-blur > i {
 	position: absolute;
 	inset: 0;
 	--b: 1px;
 	--m: linear-gradient(to top, transparent 0%, #000 16%, #000 33%, transparent 50%);
-	backdrop-filter: blur(var(--b));
-	-webkit-backdrop-filter: blur(var(--b));
+	backdrop-filter: blur(calc(var(--b) * var(--k)));
+	-webkit-backdrop-filter: blur(calc(var(--b) * var(--k)));
 	-webkit-mask-image: var(--m);
 	mask-image: var(--m);
 }
@@ -422,9 +429,22 @@ main {
 
 /* ---------- Home ---------- */
 
+.greeting {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 16px;
+}
 .greeting h1 {
 	font-size: clamp(32px, 5vw, 48px);
 	letter-spacing: -0.035em;
+}
+.greeting-action { flex: none; background: var(--surface); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line); }
+.greeting-action:hover { background: var(--surface-2); }
+/* Phones: icon-only so a longer greeting ("Good afternoon") stays on one line */
+@media (max-width: 480px) {
+	.greeting-action { width: 40px; padding: 0; }
+	.greeting-action span { display: none; }
 }
 
 .today-card {
@@ -587,14 +607,6 @@ main {
 .start-card.is-featured small { color: rgba(255, 255, 255, .82); }
 .start-card.is-featured .start-icon { background: rgba(255, 255, 255, .12); color: var(--accent); }
 
-.quick-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	margin-top: 14px;
-}
-.quick-row .btn { background: var(--surface); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line); }
-.quick-row .btn:hover { background: var(--surface-2); }
 
 /* Horizontal shelf */
 .shelf {
@@ -611,6 +623,16 @@ main {
 }
 .shelf::-webkit-scrollbar { display: none; }
 .shelf > * { scroll-snap-align: start; }
+/* Wide screens: the five popular plans fill one row instead of scrolling */
+@media (min-width: 1024px) {
+	.shelf {
+		grid-auto-flow: row;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		margin: 0;
+		padding: 4px 0 18px;
+		overflow: visible;
+	}
+}
 
 /* ---------- Plan cards ---------- */
 

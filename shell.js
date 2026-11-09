@@ -363,14 +363,11 @@
 
 	function renderHome() {
 		var el = $q('#view-home'), html = '';
-		html += '<header class="greeting" data-anim><span class="eyebrow">' + fmt(new Date(), { weekday: 'long', month: 'long', day: 'numeric' }) + '</span><h1>' + greeting() + '</h1></header>';
+		html += '<header class="greeting" data-anim><div><span class="eyebrow">' + fmt(new Date(), { weekday: 'long', month: 'long', day: 'numeric' }) + '</span><h1>' + greeting() + '</h1></div>' +
+			(state.active ? '<a class="btn greeting-action" href="#create" aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</header>';
 
 		if (state.active) {
 			html += todayCard();
-			html += '<div class="quick-row" data-anim>' +
-				'<a class="btn" href="#plan">' + icon('myplan') + '<span>Full plan</span></a>' +
-				'<a class="btn" href="#plans">' + icon('plans') + '<span>Browse plans</span></a>' +
-				'<a class="btn" href="#create">' + icon('create') + '<span>New plan</span></a></div>';
 		} else {
 			html += '<section class="section"><div class="section-head" data-anim><h2>Start here</h2></div><div class="start-grid">' +
 				'<button type="button" class="start-card is-featured" data-plan="year"><span class="start-icon">' + icon('book') + '</span><span class="start-text"><strong>Bible in a Year</strong><small>The classic, one year</small></span></button>' +
@@ -380,7 +377,7 @@
 		}
 
 		html += '<section class="section"><div class="section-head" data-anim><h2>Popular plans</h2><a class="link-btn" href="#plans">See all ' + icon('arrow') + '</a></div>' +
-			'<div class="shelf">' + PLANS.slice(0, 6).map(planCard).join('') + '</div></section>';
+			'<div class="shelf">' + PLANS.slice(0, 5).map(planCard).join('') + '</div></section>';
 
 		el.innerHTML = html;
 		fillEstimates(el);
@@ -1193,8 +1190,13 @@
 
 	/* ---------- Global events ---------- */
 
+	/* The bar's progressive blur only shows once the page has scrolled (see .appbar-blur) */
+	function syncScrolled() { doc.documentElement.classList.toggle('is-scrolled', window.scrollY > 2); }
+
 	function bindEvents() {
 		window.addEventListener('hashchange', function () { show(routeFromHash() || 'home'); });
+		window.addEventListener('scroll', syncScrolled, { passive: true });
+		syncScrolled();
 
 		doc.addEventListener('click', function (e) {
 			var t;
