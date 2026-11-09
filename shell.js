@@ -824,19 +824,27 @@
 	   null = ask; 'new' / 'edit' / 'template' = straight to the builder. Cleared on leaving the view. */
 	var createMode = null;
 
+	/* One plan: "Edit Current Plan". Several: a card per plan, so each can be edited on its own. */
 	function chooserHtml() {
+		function editCard(e, title, sub) {
+			return '<button type="button" class="start-card" data-create-mode="edit" data-edit-plan-id="' + e.id + '"><span class="start-icon">' + icon('edit') + '</span>' +
+				'<span class="start-text"><strong>' + esc(title) + '</strong><small>' + esc(sub) + '</small></span></button>';
+		}
+		var edits = mine.list.length > 1
+			? mine.list.map(function (e) { return editCard(e, entryName(e), 'Edit · ' + durationLabel(new URLSearchParams(e.query).get('total'))); })
+			: [editCard(state.active, 'Edit Current Plan', planName())];
 		return '<div class="builder create-choice"><div class="start-grid">' +
 			'<button type="button" class="start-card" data-create-mode="new"><span class="start-icon">' + icon('create') + '</span>' +
 			'<span class="start-text"><strong>Create a New Plan</strong><small>Start from scratch</small></span></button>' +
-			'<button type="button" class="start-card" data-create-mode="edit"><span class="start-icon">' + icon('edit') + '</span>' +
-			'<span class="start-text"><strong>Edit Current Plan</strong><small>' + esc(planName()) + '</small></span></button>' +
-			'</div></div>';
+			edits.join('') + '</div></div>';
 	}
 
-	function chooseCreateMode(mode) {
+	function chooseCreateMode(mode, planId) {
 		if (mode === 'edit') {
+			// editing works on the loaded plan, so open the chosen one first (saving keeps it current anyway)
+			if (planId) switchPlan(planId);
 			builderFrom(currentParams());
-			if (state.active && state.active.named) B.name = state.active.name;
+			if (state.active && state.active.name) B.name = state.active.name;
 		} else {
 			resetBuilder();
 		}
@@ -942,7 +950,7 @@
 			if (!t || !view.contains(t)) return;
 			var d = t.dataset;
 
-			if (d.createMode) return chooseCreateMode(d.createMode);
+			if (d.createMode) return chooseCreateMode(d.createMode, d.editPlanId);
 			if (t.id === 'step-next') {
 				if (B.step < LAST) goStep(B.step + 1);
 				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null, replace: createMode === 'edit' }, builderDisplay());
@@ -1424,7 +1432,7 @@
 			if ((t = e.target.closest('[data-close-sheet]'))) return sheets.close(t.closest('.sheet'));
 			if ((t = e.target.closest('[data-edit-plan]'))) {
 				builderFrom(currentParams());
-				if (state.active && state.active.named) B.name = state.active.name;
+				if (state.active && state.active.name) B.name = state.active.name;
 				createMode = 'edit';
 				return;
 			}
