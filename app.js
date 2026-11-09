@@ -127,9 +127,22 @@ function initReadingModal() {
 				reference = data && (data.reference || data.human_reference || data.display_reference) || passage.reference,
 				contentHtml = data && (data.content || data.html || data.text || data.usfm) || '';
 
+			// a whole-chapter ref ("2KI.22") labels the chapter's first verse "22:1"
+			var chapter = (String(passage.reference || '').match(/^[^.]+\.(\d+)$/) || [])[1],
+				textHtml = sanitizePassageHtml(contentHtml);
+			if (chapter) {
+				var holder = document.createElement('template');
+				holder.innerHTML = textHtml;
+				var first = holder.content.querySelector('.yv-vlbl');
+				if (first && first.textContent.trim() === '1') {
+					first.setAttribute('data-chapter', chapter);
+					textHtml = holder.innerHTML;
+				}
+			}
+
 			html.push('<section class="reading-passage">');
 			html.push('<h3>' + escapeHtml(reference) + '</h3>');
-			html.push('<div class="reading-passage-text">' + sanitizePassageHtml(contentHtml) + '</div>');
+			html.push('<div class="reading-passage-text">' + textHtml + '</div>');
 			html.push('</section>');
 		});
 

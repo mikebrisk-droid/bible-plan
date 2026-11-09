@@ -1303,7 +1303,7 @@
 
 	function bindReaderTools() {
 		var prefs = store.get(READER_KEY) || {};
-		var size = READER_SIZES.indexOf(prefs.size) > -1 ? prefs.size : 19;
+		var size = READER_SIZES.indexOf(prefs.size) > -1 ? prefs.size : 21;
 		var wide = !!prefs.wide;
 		var content = $q('#reading-modal-content'), panel = $q('.reading-modal-panel');
 

@@ -2053,13 +2053,15 @@ main {
 	#reading-modal-link { padding: 0 10px; }
 }
 #reading-modal-content {
-	--serif: 'New York', 'Iowan Old Style', 'Source Serif 4', Georgia, serif;
+	/* set like The Gospel Coalition's Read the Bible: Charter text (built into Apple devices; Charis SIL,
+	   its open-source cut, elsewhere), heavy sans headings, bold inline verse numbers */
+	--serif: Charter, 'Bitstream Charter', 'Charis SIL', 'Iowan Old Style', Georgia, serif;
 	--red-letter: #a8382b;
 	padding: 28px clamp(20px, 6vw, 56px) 56px;
 	color: var(--ink);
 	font-family: var(--serif);
-	font-size: var(--reader-size, 19px);
-	line-height: 1.75;
+	font-size: var(--reader-size, 21px);
+	line-height: 1.5;
 	font-kerning: normal;
 	hanging-punctuation: first;
 }
@@ -2086,7 +2088,7 @@ main {
 .reading-passage-text .pi1,
 .reading-passage-text .mi,
 .reading-passage-text .pc,
-.reading-passage-text .nb { margin: 0 0 0.85em; }
+.reading-passage-text .nb { margin: 0 0 0.7em; }
 .reading-passage-text .pi,
 .reading-passage-text .pi1,
 .reading-passage-text .mi { padding-left: 1.5em; }
@@ -2110,19 +2112,19 @@ main {
 .reading-passage-text .q3 { padding-left: 4em; }
 .reading-passage-text .q4 { padding-left: 5.2em; }
 .reading-passage-text :is(.p, .m, .yv-h, .d) + :is(.q, .q1, .q2, .q3, .q4) { margin-top: 0.5em; }
-.reading-passage-text :is(.q, .q1, .q2, .q3, .q4) + :is(.p, .m) { margin-top: 0.85em; }
+.reading-passage-text :is(.q, .q1, .q2, .q3, .q4) + :is(.p, .m) { margin-top: 0.7em; }
 .reading-passage-text .b { height: 0.75em; }
 .reading-passage-text .qr,
 .reading-passage-text .qs { text-align: right; font-style: italic; color: var(--ink-2); }
 
 /* headings */
 .reading-passage-text .yv-h {
-	margin: 1.6em 0 0.5em;
+	margin: 1em 0 0.3em;
 	font-family: var(--font-ui);
-	font-size: 0.8em;
-	font-weight: 650;
-	line-height: 1.35;
-	letter-spacing: -0.01em;
+	font-size: 1.3em;
+	font-weight: 800;
+	line-height: 1.15;
+	letter-spacing: -0.025em;
 	color: var(--ink);
 }
 .reading-passage-text .yv-h:first-child { margin-top: 0; }
@@ -2150,19 +2152,14 @@ main {
 	color: var(--ink-2);
 }
 
-/* verse numbers */
+/* verse numbers: bold, inline, full size; a chapter's first reads "22:1" (data-chapter, set in app.js) */
 .reading-passage-text .yv-vlbl {
-	position: relative;
-	top: -0.5em;
-	margin: 0 0.3em 0 0.15em;
-	font-family: var(--font-ui);
-	font-size: 0.58em;
+	margin: 0 0.3em 0 0.1em;
 	font-weight: 700;
-	line-height: 0;
-	color: var(--ink-3);
-	font-variant-numeric: tabular-nums;
+	color: var(--ink);
 	user-select: none;
 }
+.reading-passage-text .yv-vlbl[data-chapter]::before { content: attr(data-chapter) ':'; }
 .reading-passage-text :is(.p, .m, .q1, .q) > .yv-v:first-child + .yv-vlbl { margin-left: 0; }
 
 /* inline character styles */
