@@ -162,17 +162,32 @@
 	   keep their own checkmarks. The old single-plan key is migrated on first load. */
 	var PLANS_KEY = 'rtb-plans', ACTIVE_KEY = 'rtb-active-plan';
 	function newId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+	/* Overall stats became on by default; plans saved before then had them off only because that was
+	   the old default, so turn them on once. Anyone who turns them off again keeps them off. */
+	var STATS_ON_KEY = 'rtb-stats-default-on';
+	function statsOnOnce(m) {
+		try { if (localStorage.getItem(STATS_ON_KEY)) return; } catch (e) { return; }
+		m.list.forEach(function (e) { if (e.query) e.query = e.query.replace(/([?&])stats=0(?=&|$)/, '$1stats=1'); });
+		store.set(PLANS_KEY, m);
+		// the address bar still holds the plan's old query; leave a shared link to a new visitor alone
+		if (m.list.length && /[?&]stats=0(&|$)/.test(location.search)) {
+			history.replaceState(null, '', location.pathname + location.search.replace(/([?&])stats=0(?=&|$)/, '$1stats=1') + location.hash);
+		}
+		try { localStorage.setItem(STATS_ON_KEY, '1'); } catch (e) {}
+	}
 	var mine = (function () {
 		var m = store.get(PLANS_KEY);
 		if (m && Array.isArray(m.list)) {
 			// plans saved while the form couldn't hold a reading list lost it (order=undefined, no books): they can never show a reading
 			var kept = m.list.filter(function (e) { return new URLSearchParams(e.query || '').get('order') !== 'undefined'; });
 			if (kept.length !== m.list.length) { m.list = kept; store.set(PLANS_KEY, m); }
+			statsOnOnce(m);
 			return m;
 		}
 		m = { list: [], current: null };
 		var old = store.get(ACTIVE_KEY);
 		if (old && old.query) { old.id = newId(); m.list.push(old); m.current = old.id; }
+		statsOnOnce(m);
 		return m;
 	})();
 	function findPlan(id) { return mine.list.filter(function (e) { return e.id === id; })[0] || null; }
@@ -569,7 +584,7 @@
 			order: 'traditional', scope: 'whole', books: [], altBooks: bible.TANAKH_BOOKS.slice(), list: '', logic: 'words',
 			days: [1, 2, 3, 4, 5, 6, 7],
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
-			nodates: false, stats: false, dailystats: false, includeurls: false,
+			nodates: false, stats: true, dailystats: false, includeurls: false,
 			urlsite: DEFAULT_SITE, urlversion: DEFAULT_VERSION,
 			name: '', customStart: false, customTotal: false
 		};
@@ -1518,6 +1533,7 @@
 					var display = displayPrefs();
 					display.urlsite = DEFAULT_SITE;
 					display.urlversion = DEFAULT_VERSION;
+					display.stats = '1';
 					startPlan(params, { name: plan.title, planId: plan.id }, display);
 				});
 				return;
@@ -1627,7 +1643,7 @@
 			loadFromParams(new URLSearchParams(state.active.query));
 		} else {
 			loadFromParams(toQuery(PLANS[0].params, {
-				format: 'list', lang: $q('#options-language').value || 'en', checkbox: '1', colors: '1', stats: '0',
+				format: 'list', lang: $q('#options-language').value || 'en', checkbox: '1', colors: '1', stats: '1',
 				dailystats: '0', nodates: '0', includeurls: '0', urlsite: DEFAULT_SITE, urlversion: DEFAULT_VERSION
 			}));
 		}

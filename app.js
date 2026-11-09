@@ -1047,9 +1047,8 @@ function loadFromParams(urlParams) {
 		$('#options-nodates').prop('checked',true);	
 	}		
 	
-	if (urlParams.get('stats') == '1') {	
-		$('#options-stats').prop('checked',true);	
-	}	
+	// overall stats are on unless a plan turned them off
+	$('#options-stats').prop('checked', urlParams.get('stats') != '0');
 
 	if (urlParams.get('dailystats') == '1') {	
 		$('#options-dailystats').prop('checked',true);	
