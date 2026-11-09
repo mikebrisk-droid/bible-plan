@@ -63,7 +63,7 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 	html.push('</div>');
 	
 	if (showStats) {
-		html.unshift(createFinalStats(data.days));
+		html.unshift(createFinalStats(data.days, lang));
 	}	
 	
 	return html.join('\n');
@@ -122,7 +122,7 @@ function buildweeks(lang, data, startDate, duration, bookList, dayList, showStat
 	html.push('</div>');
 	
 	if (showStats) {
-		html.unshift(createFinalStats(data.days))
+		html.unshift(createFinalStats(data.days, lang))
 	}	
 	
 	return html.join('\n');
@@ -338,7 +338,7 @@ function buildcalendar(lang, data, startDate, duration, bookList, dayList, showS
 	html.push('</div>');
 
 	if (showStats) {
-		html.unshift(createFinalStats(data.days));
+		html.unshift(createFinalStats(data.days, lang));
 	}
 
 	return html.join('\n');
@@ -439,7 +439,7 @@ function buildcalendarContinuous(lang, data, startDate, duration, bookList, dayL
 	html.push('</table>');
 
 	if (showStats) {
-		html.unshift(createFinalStats(data.days))
+		html.unshift(createFinalStats(data.days, lang))
 	}
 	
 	
@@ -447,48 +447,506 @@ function buildcalendarContinuous(lang, data, startDate, duration, bookList, dayL
 	
 }
 
-function createFinalStats(days) {
+/* Overall plan stats. Collapsed, they are a row of figure tiles in the plan; tapping the row grows it
+   into a full view of widget cards (the tiles become the hero card), and Back shrinks it home again. */
+var STAT_SECTIONS = [
+	{ name: 'Law', sections: [0] },
+	{ name: 'History', sections: [1] },
+	{ name: 'Wisdom', sections: [2] },
+	{ name: 'Prophets', sections: [3, 4] },
+	{ name: 'Gospels & Acts', sections: [5, 6] },
+	{ name: 'Letters', sections: [7, 8, 9] },
+	{ name: 'Revelation', sections: [10] },
+	{ name: 'Apocrypha', sections: [11] }
+];
+var WORDS_PER_MINUTE = 230, WORDS_PER_VERSE = 26;
+var lastPlanStats = null;
 
-	// calendar view adds dummy days to the front, so the stats need to be offset for that
-	var daysOffset = 0; //(days[0].day < 1) ? Math.abs(days[0].day) + 1 : 0;
-
-	var verseStats = getPlanStats(days),
-		wordStats = getPlanWordStats(days);
-
-	
-	var	html = `
-			<div class="plan-stats">
-				<table>
-					<tr>
-						<th>Average Verses:</th>
-						<td>${verseStats.avg.toFixed(2)}</td>
-					</tr>`;
-	if (!isNaN(wordStats.avg)) {
-		html += `
-					<tr>
-						<th>Average Words:</th>
-						<td>${wordStats.avg.toFixed(2)}</td>
-					</tr>
-					<tr>
-						<th>Average Time:</th>
-						<td>${(wordStats.avg/200).toFixed(2)} minutes</td>
-					</tr>`;
-	}
-	html += `					
-					<tr>
-						<th>Longest Day:</th>
-						<td>${(days[verseStats.maxIndex + daysOffset].date.getMonth()+1) + '/' + days[verseStats.maxIndex + daysOffset].date.getDate()} - ${verseStats.max} verses</td>
-					</tr>	
-					<tr>
-						<th>Shortest Day:</th>
-						<td>${(days[verseStats.minIndex + daysOffset].date.getMonth()+1) + '/' + days[verseStats.minIndex + daysOffset].date.getDate()} - ${verseStats.min} verses</td>
-					</tr>										
-				</table>
-			</div>
-		`;
-	return html;
-
+function statNumber(n) {
+	return n >= 10000 ? (Math.round(n / 100) / 10).toLocaleString() + 'K' : Math.round(n).toLocaleString();
 }
+
+function statDuration(minutes) {
+	minutes = Math.round(minutes);
+	if (minutes < 60) return { value: Math.max(1, minutes), unit: 'min' };
+	var hours = minutes / 60;
+	return { value: hours < 10 ? Math.round(hours * 10) / 10 : Math.round(hours), unit: 'hr' };
+}
+
+function statMin(minutes) { return Math.max(1, Math.round(minutes)); }
+function statDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
+function statDate(date, opts) { return date.toLocaleDateString(undefined, opts || { month: 'short', day: 'numeric' }); }
+function statDone(index) {
+	try { return typeof getLocalStorage === 'function' && getLocalStorage(window.currentKey + '-' + index, false) === 'true'; }
+	catch (e) { return false; }
+}
+
+/* Everything the tiles and cards show, worked out once from the plan's days */
+function planStatsModel(days, lang) {
+	var readings = [], books = {}, chapters = {}, verses = 0, hasWords = true;
+
+	days.forEach(function (day, index) {
+		if (!(day.versesForToday > 0)) return;
+		if (!(day.wordsForToday > 0)) hasWords = false;
+		readings.push({ day: day, index: index, date: statDay(day.date) });
+		verses += day.versesForToday;
+		(day.chapters || []).forEach(function (c) {
+			var key = c.usfm + '.' + c.chapter;
+			if (!chapters[key]) {
+				chapters[key] = c;
+				books[c.usfm] = (books[c.usfm] || 0) + 1;
+			}
+		});
+	});
+	if (!readings.length) return null;
+
+	// minutes come from word counts; languages without them fall back to an average verse length
+	var totalMinutes = 0;
+	readings.forEach(function (r) {
+		r.minutes = (hasWords ? r.day.wordsForToday : r.day.versesForToday * WORDS_PER_VERSE) / WORDS_PER_MINUTE;
+		r.done = statDone(r.index);
+		totalMinutes += r.minutes;
+	});
+
+	var today = statDay(new Date()), first = readings[0].date, last = readings[readings.length - 1].date,
+		due = readings.filter(function (r) { return r.date <= today; }),
+		behind = due.filter(function (r) { return !r.done && r.date < today; }),
+		byLength = readings.slice().sort(function (a, b) { return b.minutes - a.minutes; });
+
+	return {
+		days: days, lang: lang, readings: readings, verses: verses,
+		books: books, chapters: chapters,
+		totalMinutes: totalMinutes, avgMinutes: totalMinutes / readings.length,
+		longest: byLength[0], shortest: byLength[byLength.length - 1], byLength: byLength,
+		today: today, first: first, last: last,
+		status: today < first ? 'upcoming' : today > last ? 'finished' : 'active',
+		due: due, behind: behind,
+		done: readings.filter(function (r) { return r.done; }),
+		todayReading: readings.filter(function (r) { return +r.date === +today; })[0] || null
+	};
+}
+
+function statTiles(m) {
+	var perDay = statDuration(m.avgMinutes), total = statDuration(m.totalMinutes);
+	return [
+		['Reading days', statNumber(m.readings.length)],
+		['Books', statNumber(Object.keys(m.books).length)],
+		['Chapters', statNumber(Object.keys(m.chapters).length)],
+		['Verses', statNumber(m.verses)],
+		['Per day', perDay.value + ' <small>' + perDay.unit + '</small>'],
+		['Total time', total.value + ' <small>' + total.unit + '</small>']
+	];
+}
+
+var STAT_ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function createFinalStats(days, lang) {
+	var m = planStatsModel(days, lang);
+	if (!m) return '';
+	lastPlanStats = { days: days, lang: lang };
+	return '<div class="plan-stats" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Open plan stats" data-stats-open>' +
+		'<dl class="ps-tiles">' + statTiles(m).map(function (t) {
+			return '<div><dt>' + t[0] + '</dt><dd>' + t[1] + '</dd></div>';
+		}).join('') + '</dl>' +
+		'<span class="ps-open-icon" aria-hidden="true">' + STAT_ARROW + '</span>' +
+		'</div>';
+}
+
+/* ---------- The full view ---------- */
+
+function statCard(key, dot, title, meta, body, foot) {
+	return '<article class="ps-card ps-c-' + key + '" style="--dot:var(--ps-' + dot + ')">' +
+		'<header><h3><i></i>' + title + '</h3><span>' + meta + '</span></header>' +
+		'<div class="ps-card-body">' + body + '</div>' +
+		(foot ? '<p class="ps-card-foot">' + foot + '</p>' : '') +
+		'<div class="ps-tip" hidden></div>' +
+		'</article>';
+}
+
+function statFigure(value, unit, label) {
+	var count = typeof value === 'number' ? ' data-n="' + value + '"' : '';
+	return '<p class="ps-figure">' + (label ? '<small>' + label + '</small>' : '') + '<b' + count + '>' + (typeof value === 'number' ? value.toLocaleString() : value) + '</b>' + (unit ? '<span>' + unit + '</span>' : '') + '</p>';
+}
+
+function statHero(m) {
+	var name = (document.getElementById('plan-name') || {}).textContent || 'My plan',
+		range = statDate(m.first, { month: 'short', day: 'numeric' }) + ' – ' + statDate(m.last, { month: 'short', day: 'numeric', year: 'numeric' }),
+		total = m.readings.length, figure, line;
+
+	if (m.status === 'upcoming') {
+		var until = Math.round((m.first - m.today) / 864e5);
+		figure = statFigure(until, until === 1 ? 'day' : 'days', 'Starts in');
+		line = 'Starts <em>' + escapeHtml(statDate(m.first, { weekday: 'short', month: 'short', day: 'numeric' })) + '</em>,<br>about ' + statMin(m.avgMinutes) + ' min a day.';
+	} else if (m.status === 'finished') {
+		figure = statFigure(total, 'days', 'Finished');
+		line = '<em>Finished</em> ' + escapeHtml(statDate(m.last)) + ',<br>' + m.done.length.toLocaleString() + ' of ' + total.toLocaleString() + ' read.';
+	} else {
+		figure = statFigure(Math.max(1, m.due.length), 'of ' + total.toLocaleString(), 'Day');
+		var t = m.todayReading;
+		if (m.behind.length) {
+			var catchUp = m.behind.reduce(function (s, r) { return s + r.minutes; }, 0);
+			line = 'You’re <em>' + m.behind.length + (m.behind.length === 1 ? ' reading' : ' readings') + ' behind</em>,<br>about ' + statMin(catchUp) + ' min to catch up.';
+		} else if (t && !t.done) {
+			line = 'Today is <em>' + escapeHtml(t.day.formattedReading) + '</em>,<br>about ' + statMin(t.minutes) + ' min.';
+		} else if (t) {
+			line = 'Today’s reading is <em>done</em>,<br>' + (total - m.due.length) + ' to go.';
+		} else {
+			var next = m.readings.filter(function (r) { return r.date > m.today; })[0];
+			line = '<em>Rest day</em> today,<br>next up ' + escapeHtml(statDate(next.date, { weekday: 'long' })) + '.';
+		}
+	}
+
+	// the next dozen readings, like an hourly forecast
+	var start = m.status === 'finished' ? Math.max(0, total - 12) : Math.max(0, m.readings.indexOf(m.readings.filter(function (r) { return r.date >= m.today; })[0]));
+	var strip = m.readings.slice(start, start + 12).map(function (r) {
+		var days = Math.round((r.date - m.today) / 864e5),
+			when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? statDate(r.date, { weekday: 'short' }) : statDate(r.date);
+		return '<li class="' + (days === 0 ? 'is-now ' : '') + (r.done ? 'is-done' : '') + '">' +
+			'<span>' + when + '</span><b>' + escapeHtml(r.day.formattedReading) + '</b><em>' + (r.done ? '✓ ' : '') + statMin(r.minutes) + ' min</em></li>';
+	}).join('');
+
+	return '<section class="ps-hero">' +
+		'<header><strong>' + escapeHtml(name) + '</strong><span>' + range + '</span></header>' +
+		'<div class="ps-hero-main">' + figure + '<p class="ps-hero-line">' + line + '</p></div>' +
+		'<ol class="ps-strip">' + strip + '</ol>' +
+		'<p class="ps-hero-foot">' + statTiles(m).map(function (t) { return t[1].replace(/<[^>]+>/g, '') + ' ' + t[0].toLowerCase(); }).join(' · ') + '</p>' +
+		'</section>';
+}
+
+function statDailyPlot(m) {
+	var days = m.days, readings = m.readings,
+		first = readings[0].index, last = readings[readings.length - 1].index,
+		span = last - first + 1, byIndex = {},
+		maxMinutes = m.longest.minutes,
+		step = [5, 10, 15, 20, 30, 60, 120, 240].filter(function (n) { return Math.ceil(maxMinutes / n) <= 4; })[0] || 480,
+		top = Math.max(step, Math.ceil(maxMinutes / step) * step);
+
+	readings.forEach(function (r) { byIndex[r.index] = r; });
+
+	var bars = [];
+	for (var i = first; i <= last; i++) {
+		var r = byIndex[i], day = days[i];
+		if (!r) { bars.push('<i class="is-rest" data-d="' + escapeAttr(statDate(day.date)) + '"></i>'); continue; }
+		bars.push('<i' + (+r.date === +m.today ? ' class="ps-today"' : '') +
+			' style="--h:' + (r.minutes / top * 100).toFixed(2) + '%"' +
+			' data-d="' + escapeAttr(statDate(day.date)) + '"' +
+			' data-r="' + escapeAttr(day.formattedReading) + '"' +
+			' data-v="' + day.versesForToday + '"' +
+			' data-m="' + statMin(r.minutes) + '"></i>');
+	}
+
+	var grid = '';
+	for (var t = step; t <= top; t += step) {
+		// a tick label too close to the average line would collide with its label
+		var label = Math.abs(t - m.avgMinutes) / top < 0.12 ? '' : '<b>' + t + (t === top ? ' min' : '') + '</b>';
+		grid += '<span style="bottom:' + (t / top * 100).toFixed(2) + '%">' + label + '</span>';
+	}
+
+	// month starts along the bottom, thinned so they never crowd
+	var months = [], ticks = '';
+	for (i = first; i <= last; i++) {
+		if (i === first || days[i].date.getDate() === 1) months.push(i);
+	}
+	if (months.length > 1) {
+		var every = Math.ceil(months.length / 12), shown = 0;
+		months.forEach(function (idx, n) {
+			if (n % every) return;
+			if (idx === first && days[idx].date.getDate() > 20 && months.length > 2) return;
+			// every other label drops out on narrow screens
+			ticks += '<span' + (shown++ % 2 ? ' class="is-alt"' : '') + ' style="left:' + ((idx - first) / span * 100).toFixed(2) + '%">' +
+				statDate(days[idx].date, { month: 'short' }) + '</span>';
+		});
+	} else {
+		ticks = '<span style="left:0">' + statDate(days[first].date) + '</span>' +
+			'<span style="right:0">' + statDate(days[last].date) + '</span>';
+	}
+
+	return '<div class="ps-plot">' +
+			'<div class="ps-grid" aria-hidden="true">' + grid + '</div>' +
+			'<div class="ps-avg" style="bottom:' + (m.avgMinutes / top * 100).toFixed(2) + '%" aria-hidden="true"><b>avg ' + statMin(m.avgMinutes) + '</b></div>' +
+			'<div class="ps-bars' + (span > 120 ? ' is-dense' : '') + '" role="img" aria-label="Reading length for each day, from ' +
+				statMin(m.shortest.minutes) + ' to ' + statMin(maxMinutes) + ' minutes">' + bars.join('') + '</div>' +
+		'</div>' +
+		'<div class="ps-months" aria-hidden="true">' + ticks + '</div>';
+}
+
+function statTimeCard(m) {
+	var total = statDuration(m.totalMinutes);
+	return statCard('time', 2, 'Reading time', m.readings.length.toLocaleString() + ' days',
+		statFigure(statMin(m.avgMinutes), 'min a day') + statDailyPlot(m),
+		'Longest ' + statDate(m.longest.date) + ' · ' + statMin(m.longest.minutes) + ' min · ' + total.value + ' ' + total.unit + ' in all');
+}
+
+function statTimelineCard(m) {
+	var total = m.readings.length, done = m.done.length, behind = m.behind.length,
+		left = total - m.due.length, figure,
+		pct = function (n) { return (n / total * 100).toFixed(2) + '%'; };
+
+	if (m.status === 'upcoming') figure = statFigure(Math.round((m.first - m.today) / 864e5), 'days to start');
+	else figure = statFigure(left, left === 1 ? 'day left' : 'days left');
+
+	var bar = '<div class="ps-track" role="img" aria-label="' + done + ' read, ' + behind + ' behind, ' + left + ' to go">' +
+		'<span class="is-read" style="width:' + pct(done) + '"></span>' +
+		'<span class="is-behind" style="width:' + pct(behind) + '"></span>' +
+		(m.status === 'active' ? '<i style="left:' + pct(m.due.length) + '"></i>' : '') +
+		'</div>';
+
+	var cols = [['Starts', statDate(m.first), ''], ['Ends', statDate(m.last), ''], ['Read', done.toLocaleString(), 'is-read'], ['Behind', behind.toLocaleString(), 'is-behind']];
+	return statCard('timeline', 4, 'Timeline', m.status === 'active' ? 'Today' : m.status === 'upcoming' ? 'Soon' : 'Done',
+		figure + bar + '<dl class="ps-cols">' + cols.map(function (c) {
+			return '<div><dt class="' + c[2] + '">' + c[0] + '</dt><dd>' + c[1] + '</dd></div>';
+		}).join('') + '</dl>',
+		(m.status === 'finished' ? 'Ended ' : 'Ends ') + statDate(m.last, { weekday: 'long', month: 'short', day: 'numeric' }));
+}
+
+function statWeekCard(m) {
+	// this week if the plan is running, otherwise its first week
+	var anchor = m.status === 'active' ? m.today : m.status === 'upcoming' ? m.first : m.last,
+		sunday = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - anchor.getDay()),
+		week = [], max = 0, sum = 0, count = 0;
+
+	for (var i = 0; i < 7; i++) {
+		var d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i),
+			r = m.readings.filter(function (x) { return +x.date === +d; })[0] || null;
+		week.push({ date: d, reading: r });
+		if (r) { max = Math.max(max, r.minutes); sum += r.minutes; count++; }
+	}
+
+	var cols = week.map(function (w) {
+		var r = w.reading, isToday = +w.date === +m.today,
+			cls = (isToday ? ' is-now' : '') + (r && r.done ? ' is-done' : '') + (!r ? ' is-rest' : '');
+		return '<li class="' + cls.trim() + '"' + (r ? ' data-d="' + escapeAttr(statDate(w.date, { weekday: 'short', month: 'short', day: 'numeric' })) + '" data-r="' + escapeAttr(r.day.formattedReading) + '" data-v="' + r.day.versesForToday + '" data-m="' + statMin(r.minutes) + '"' : '') + '>' +
+			'<span class="ps-pill"><span style="height:' + (r ? Math.max(12, r.minutes / max * 100).toFixed(1) : 0) + '%"></span></span>' +
+			'<b>' + statDate(w.date, { weekday: 'narrow' }) + '</b></li>';
+	}).join('');
+
+	var t = m.status === 'active' ? m.todayReading : null;
+	return statCard('week', 1, 'This week', '7 days',
+		(t ? statFigure(statMin(t.minutes), 'min today') : statFigure(count, count === 1 ? 'reading' : 'readings')) +
+		'<ol class="ps-week">' + cols + '</ol>',
+		statMin(sum) + ' min across ' + count + (count === 1 ? ' reading' : ' readings'));
+}
+
+function statProgressCard(m) {
+	var total = m.readings.length, done = m.done.length, pct = total ? Math.round(done / total * 100) : 0,
+		r = 52, c = 2 * Math.PI * r, arc = c * 0.75;
+	var gauge = '<div class="ps-gauge" role="img" aria-label="' + pct + '% complete">' +
+		'<svg viewBox="0 0 120 120" aria-hidden="true">' +
+			'<circle cx="60" cy="60" r="' + r + '" class="ps-gauge-track" stroke-dasharray="' + arc.toFixed(1) + ' ' + c.toFixed(1) + '" />' +
+			(done ? '<circle cx="60" cy="60" r="' + r + '" class="ps-gauge-fill" stroke-dasharray="' + (arc * done / total).toFixed(1) + ' ' + c.toFixed(1) + '" />' : '') +
+		'</svg>' +
+		'<p><b><span data-n="' + pct + '">' + pct + '</span><small>%</small></b><span>Complete</span></p></div>';
+	return statCard('progress', 3, 'Progress', 'Checked off', gauge,
+		done.toLocaleString() + ' of ' + total.toLocaleString() + ' readings read');
+}
+
+function statBooksCard(m) {
+	var list = Object.keys(m.books).sort(function (a, b) { return m.books[b] - m.books[a]; }).slice(0, 4);
+	var rows = list.map(function (usfm) {
+		var info = bible.BIBLE_DATA[usfm];
+		return '<li><span>' + escapeHtml(info ? bible.getName(info, m.lang || 'en') : usfm) + '</span><b>' + m.books[usfm] + ' ch</b></li>';
+	}).join('');
+	var n = Object.keys(m.books).length;
+	return statCard('books', 7, 'Books', 'Most chapters',
+		statFigure(n, n === 1 ? 'book' : 'books') + '<ul class="ps-rows">' + rows + '</ul>',
+		Object.keys(m.chapters).length.toLocaleString() + ' chapters in all');
+}
+
+function statSectionsCard(m) {
+	var totals = STAT_SECTIONS.map(function () { return { verses: 0, chapters: 0 }; }), all = 0;
+
+	Object.keys(m.chapters).forEach(function (key) {
+		var c = m.chapters[key], book = bible.BIBLE_DATA[c.usfm];
+		if (!book) return;
+		var slot = -1;
+		STAT_SECTIONS.forEach(function (s, n) { if (s.sections.indexOf(book.section) > -1) slot = n; });
+		if (slot < 0) return;
+		var verses = (book.chapters && book.chapters[c.chapter - 1]) || 0;
+		totals[slot].verses += verses;
+		totals[slot].chapters += 1;
+		all += verses;
+	});
+
+	var parts = STAT_SECTIONS.map(function (s, n) {
+		return { name: s.name, slot: n + 1, verses: totals[n].verses, chapters: totals[n].chapters, share: all ? totals[n].verses / all : 0 };
+	}).filter(function (p) { return p.verses > 0; });
+
+	if (!parts.length) return '';
+
+	function pct(p) { var v = p.share * 100; return (v < 1 ? '<1' : Math.round(v)) + '%'; }
+
+	var blocks = parts.map(function (p) {
+		var label = p.name + ': ' + pct(p) + ', ' + p.chapters.toLocaleString() + ' chapters, ' + p.verses.toLocaleString() + ' verses';
+		return '<span class="ps-seg ps-s' + p.slot + '" style="flex-grow:' + p.verses + '" tabindex="0" aria-label="' + escapeAttr(label) + '"' +
+			' data-d="' + escapeAttr(p.name) + '" data-r="' + p.chapters.toLocaleString() + ' chapters" data-v="' + p.verses + '" data-p="' + escapeAttr(pct(p)) + '">' +
+			(p.share >= 0.1 ? pct(p) : '') + '</span>';
+	}).join('');
+
+	var rows = parts.map(function (p) {
+		return '<li><span><i class="ps-s' + p.slot + '"></i>' + p.name + '</span><b>' + pct(p) + ' · ' + p.chapters.toLocaleString() + ' ch</b></li>';
+	}).join('');
+
+	var top = parts.slice().sort(function (a, b) { return b.share - a.share; })[0];
+	return statCard('sections', 5, 'What you’ll read', 'By verses',
+		'<div class="ps-segbar">' + blocks + '</div><ul class="ps-rows ps-rows-2">' + rows + '</ul>',
+		parts.length > 1 ? 'Mostly ' + top.name : 'All ' + top.name);
+}
+
+function statLongestCard(m) {
+	var rows = m.byLength.slice(0, 5).map(function (r) {
+		return '<li><span><em>' + statDate(r.date) + '</em>' + escapeHtml(r.day.formattedReading) + '</span><b>' + statMin(r.minutes) + ' min</b></li>';
+	}).join('');
+	return statCard('longest', 8, 'Longest days', 'Top 5', '<ul class="ps-rows">' + rows + '</ul>',
+		'Shortest ' + statDate(m.shortest.date) + ' · ' + statMin(m.shortest.minutes) + ' min');
+}
+
+function statsView(m) {
+	return '<div class="ps-view" role="dialog" aria-modal="true" aria-label="Plan stats">' +
+		'<div class="ps-view-inner">' +
+			'<div class="ps-view-bar"><button type="button" class="btn btn-ghost ps-back" data-stats-close>' +
+				'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</button></div>' +
+			statHero(m) +
+			'<div class="ps-cards">' +
+				statTimeCard(m) + statTimelineCard(m) +
+				statWeekCard(m) + statProgressCard(m) + statBooksCard(m) +
+				statSectionsCard(m) + statLongestCard(m) +
+			'</div>' +
+		'</div></div>';
+}
+
+/* Opening grows the hero card out of the tiles row, after the widget pages on bybrisk.com: a plain copy
+   of the card's surface stretches from the tiles to the hero's place, hands over, and everything rises in.
+   Back runs it the other way. */
+(function () {
+	var view = null, source = null, root = document.documentElement;
+	function motion() { return window.gsap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+	function ghostAt(rect, bg) {
+		var ghost = document.createElement('div');
+		ghost.className = 'ps-ghost';
+		Object.assign(ghost.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px', backgroundColor: bg });
+		document.body.appendChild(ghost);
+		return ghost;
+	}
+
+	function countUp(scope, delay) {
+		scope.querySelectorAll('[data-n]').forEach(function (el) {
+			var target = Number(el.getAttribute('data-n')), o = { n: 0 };
+			el.textContent = '0';
+			window.gsap.to(o, { n: target, duration: 1.3, delay: delay, ease: 'expo.out', onUpdate: function () { el.textContent = Math.round(o.n).toLocaleString(); } });
+		});
+	}
+
+	function open(tiles) {
+		if (view || !lastPlanStats) return;
+		var m = planStatsModel(lastPlanStats.days, lastPlanStats.lang);
+		if (!m) return;
+		source = tiles;
+		var wrap = document.createElement('div');
+		wrap.innerHTML = statsView(m);
+		view = wrap.firstChild;
+		document.body.appendChild(view);
+		root.classList.add('ps-locked');
+		view.querySelector('.ps-back').focus({ preventScroll: true });
+		if (!motion()) return;
+
+		var g = window.gsap, hero = view.querySelector('.ps-hero'), to = hero.getBoundingClientRect(),
+			ghost = ghostAt(tiles.getBoundingClientRect(), getComputedStyle(tiles).backgroundColor);
+		g.set(hero, { opacity: 0 });
+		g.timeline()
+			.from(view, { opacity: 0, duration: 0.3, ease: 'power1.out' }, 0)
+			.from(view.querySelectorAll('.ps-view-bar > *'), { y: -10, opacity: 0, duration: 0.8, ease: 'expo.out', clearProps: 'transform,opacity' }, 0)
+			.to(ghost, { left: to.left, top: to.top, width: to.width, height: to.height, backgroundColor: getComputedStyle(hero).backgroundColor, duration: 0.7, ease: 'expo.inOut' }, 0)
+			.set(hero, { opacity: 1 })
+			.to(ghost, { opacity: 0, duration: 0.25, ease: 'power1.out', onComplete: function () { ghost.remove(); } })
+			.from(hero.children, { opacity: 0, y: 10, duration: 0.7, stagger: 0.06, ease: 'expo.out', clearProps: 'transform,opacity' }, '<')
+			.from(view.querySelectorAll('.ps-card'), { y: 28, opacity: 0, duration: 1.1, stagger: 0.05, ease: 'expo.out', clearProps: 'transform,opacity' }, 0.55);
+		countUp(view, 0.6);
+	}
+
+	function close() {
+		if (!view) return;
+		var v = view, tiles = source && document.body.contains(source) ? source : document.querySelector('.plan-stats');
+		view = null;
+		function done() {
+			v.remove();
+			root.classList.remove('ps-locked');
+			if (tiles) tiles.focus({ preventScroll: true });
+			source = null;
+		}
+		if (!motion()) return done();
+		var g = window.gsap, hero = v.querySelector('.ps-hero'), r = tiles && tiles.getBoundingClientRect();
+		if (!r || r.bottom < 0 || r.top > window.innerHeight) {
+			return g.to(v, { opacity: 0, duration: 0.25, onComplete: done });
+		}
+		var ghost = ghostAt(hero.getBoundingClientRect(), getComputedStyle(hero).backgroundColor);
+		g.timeline({ onComplete: function () { ghost.remove(); done(); } })
+			.to(v.querySelectorAll('.ps-card, .ps-view-bar > *'), { opacity: 0, y: 16, duration: 0.25, stagger: 0.015, ease: 'power2.in' }, 0)
+			.to(hero, { opacity: 0, duration: 0.15 }, 0)
+			.to(ghost, { left: r.left, top: r.top, width: r.width, height: r.height, backgroundColor: getComputedStyle(tiles).backgroundColor, duration: 0.6, ease: 'expo.inOut' }, 0.1)
+			.to(v, { opacity: 0, duration: 0.3 }, 0.35)
+			.to(ghost, { opacity: 0, duration: 0.15 }, 0.6);
+	}
+
+	document.addEventListener('click', function (e) {
+		var t = e.target.closest && e.target.closest('[data-stats-open], [data-stats-close]');
+		if (!t) return;
+		if (t.hasAttribute('data-stats-open')) open(t);
+		else close();
+	});
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && view) { close(); return; }
+		if ((e.key === 'Enter' || e.key === ' ') && e.target.hasAttribute && e.target.hasAttribute('data-stats-open')) {
+			e.preventDefault();
+			open(e.target);
+		}
+	});
+})();
+
+/* One hover/tap tooltip per card; cards are rebuilt on every open, so listen on the document */
+(function () {
+	var current = null;
+	function tipFor(mark) { var card = mark.closest('.ps-card'); return card && card.querySelector('.ps-tip'); }
+
+	function show(mark) {
+		var tip = tipFor(mark);
+		if (!tip) return;
+		if (current && current !== mark) clear();
+		current = mark;
+		mark.classList.add('is-hover');
+		var d = mark.dataset, lines;
+		if (mark.classList.contains('is-rest')) lines = '<strong>' + escapeHtml(d.d || '') + '</strong><span>Rest day</span>';
+		else if (d.p) lines = '<strong>' + escapeHtml(d.d) + ' · ' + escapeHtml(d.p) + '</strong><span>' + escapeHtml(d.r) + ' · ' + Number(d.v).toLocaleString() + ' verses</span>';
+		else lines = '<strong>' + escapeHtml(d.d) + '</strong><span>' + escapeHtml(d.r) + '</span><span>' + Number(d.v).toLocaleString() + ' verses · ' + d.m + ' min</span>';
+		tip.innerHTML = lines;
+		tip.hidden = false;
+		var card = mark.closest('.ps-card').getBoundingClientRect(), box = mark.getBoundingClientRect(),
+			x = box.left + box.width / 2 - card.left, w = tip.offsetWidth;
+		tip.style.left = Math.min(Math.max(8, x - w / 2), card.width - w - 8) + 'px';
+		tip.style.top = (box.top - card.top - tip.offsetHeight - 8) + 'px';
+	}
+
+	function clear() {
+		if (!current) return;
+		current.classList.remove('is-hover');
+		var tip = tipFor(current);
+		if (tip) tip.hidden = true;
+		current = null;
+	}
+
+	var MARKS = '.ps-bars i, .ps-seg, .ps-week li[data-d], .ps-week li.is-rest';
+	document.addEventListener('pointerover', function (e) {
+		var mark = e.target.closest && e.target.closest(MARKS);
+		if (mark && mark.dataset.d) show(mark);
+		else if (current && !(e.target.closest && e.target.closest('.ps-bars, .ps-segbar, .ps-week'))) clear();
+	});
+	document.addEventListener('focusin', function (e) {
+		if (e.target.classList && e.target.classList.contains('ps-seg')) show(e.target);
+	});
+	document.addEventListener('focusout', function (e) {
+		if (e.target.classList && e.target.classList.contains('ps-seg')) clear();
+	});
+})();
 
 function buildbooks(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates) {
 
