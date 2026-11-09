@@ -1304,7 +1304,7 @@
 	function bindReaderTools() {
 		var prefs = store.get(READER_KEY) || {};
 		var size = READER_SIZES.indexOf(prefs.size) > -1 ? prefs.size : 21;
-		var wide = !!prefs.wide;
+		var wide = !!prefs.wide, lines = !!prefs.lines;
 		var content = $q('#reading-modal-content'), panel = $q('.reading-modal-panel');
 
 		function apply(keepPlace) {
@@ -1312,10 +1312,12 @@
 			var ratio = keepPlace && panel.scrollHeight > panel.clientHeight ? panel.scrollTop / (panel.scrollHeight - panel.clientHeight) : null;
 			content.style.setProperty('--reader-size', size + 'px');
 			panel.classList.toggle('is-wide', wide);
+			content.classList.toggle('is-verse-lines', lines);
 			$q('[data-reader="smaller"]').disabled = size === READER_SIZES[0];
 			$q('[data-reader="larger"]').disabled = size === READER_SIZES[READER_SIZES.length - 1];
 			$q('[data-reader="wide"]').setAttribute('aria-pressed', String(wide));
-			store.set(READER_KEY, { size: size, wide: wide });
+			$q('[data-reader="lines"]').setAttribute('aria-pressed', String(lines));
+			store.set(READER_KEY, { size: size, wide: wide, lines: lines });
 			if (ratio !== null) {
 				requestAnimationFrame(function () { panel.scrollTop = ratio * (panel.scrollHeight - panel.clientHeight); });
 			}
@@ -1328,6 +1330,7 @@
 			if (t.dataset.reader === 'smaller' && i > 0) size = READER_SIZES[i - 1];
 			if (t.dataset.reader === 'larger' && i < READER_SIZES.length - 1) size = READER_SIZES[i + 1];
 			if (t.dataset.reader === 'wide') wide = !wide;
+			if (t.dataset.reader === 'lines') lines = !lines;
 			apply(true);
 			if (motionOK) g.fromTo(t, { scale: 0.85 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' });
 		});

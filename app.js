@@ -127,18 +127,17 @@ function initReadingModal() {
 				reference = data && (data.reference || data.human_reference || data.display_reference) || passage.reference,
 				contentHtml = data && (data.content || data.html || data.text || data.usfm) || '';
 
+			var holder = document.createElement('template');
+			holder.innerHTML = sanitizePassageHtml(contentHtml);
+
 			// a whole-chapter ref ("2KI.22") labels the chapter's first verse "22:1"
 			var chapter = (String(passage.reference || '').match(/^[^.]+\.(\d+)$/) || [])[1],
-				textHtml = sanitizePassageHtml(contentHtml);
-			if (chapter) {
-				var holder = document.createElement('template');
-				holder.innerHTML = textHtml;
-				var first = holder.content.querySelector('.yv-vlbl');
-				if (first && first.textContent.trim() === '1') {
-					first.setAttribute('data-chapter', chapter);
-					textHtml = holder.innerHTML;
-				}
+				first = holder.content.querySelector('.yv-vlbl');
+			if (chapter && first && first.textContent.trim() === '1') {
+				first.setAttribute('data-chapter', chapter);
 			}
+			markVerseBreaks(holder.content);
+			var textHtml = holder.innerHTML;
 
 			html.push('<section class="reading-passage">');
 			html.push('<h3>' + escapeHtml(reference) + '</h3>');
@@ -224,6 +223,24 @@ function escapeHtml(value) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;');
+}
+
+/* For the reader's "one verse per line" setting: a hidden <br class="verse-break"> before every verse
+   number that has text ahead of it in its paragraph or poetry line. CSS shows them when it's on. */
+var VERSE_BLOCKS = '.p, .m, .pi, .pi1, .pi2, .mi, .pc, .nb, .q, .q1, .q2, .q3, .q4, .qm, .qm1, .qm2, .d, .li, .li1, .li2';
+function markVerseBreaks(root) {
+	root.querySelectorAll('.yv-vlbl').forEach(function(label) {
+		var block = label.closest(VERSE_BLOCKS) || label.parentElement;
+		if (!block) return;
+		var range = block.ownerDocument.createRange();
+		range.setStart(block, 0);
+		range.setEndBefore(label);
+		if (!range.toString().trim()) return;
+		var br = block.ownerDocument.createElement('br');
+		br.className = 'verse-break';
+		var before = label.previousElementSibling && label.previousElementSibling.classList.contains('yv-v') ? label.previousElementSibling : label;
+		before.parentNode.insertBefore(br, before);
+	});
 }
 
 function sanitizePassageHtml(value) {

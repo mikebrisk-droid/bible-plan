@@ -2035,7 +2035,8 @@ main {
 .reader-tools .icon-btn { width: 34px; height: 34px; color: var(--ink); }
 .reader-tools .icon-btn:hover { background: var(--surface); }
 .reader-tools .icon-btn[disabled] { opacity: .3; pointer-events: none; }
-.reader-tools .reader-wide[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); }
+.reader-tools .icon-btn[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); }
+.reader-tools .reader-lines .icon { stroke-width: 2.2; }
 .reader-tools [class^="glyph"] { font-family: var(--font-ui); font-weight: 650; line-height: 1; }
 .glyph-sm { font-size: 13px; }
 .glyph-lg { font-size: 19px; }
@@ -2161,6 +2162,10 @@ main {
 	user-select: none;
 }
 .reading-passage-text .yv-vlbl[data-chapter]::before { content: attr(data-chapter) ':'; }
+
+/* One verse per line (reader toggle): show the breaks app.js placed before each verse */
+.reading-passage-text .verse-break { display: none; }
+.is-verse-lines .reading-passage-text .verse-break { display: inline; }
 .reading-passage-text :is(.p, .m, .q1, .q) > .yv-v:first-child + .yv-vlbl { margin-left: 0; }
 
 /* inline character styles */
