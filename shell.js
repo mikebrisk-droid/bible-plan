@@ -1175,6 +1175,7 @@
 		var prev = state.view ? $q('#view-' + state.view) : null, next = $q('#view-' + view);
 		if (state.view === view) { renderView(view); return; }
 		if (state.view === 'create') createMode = null;
+		setPlanMenu(false);
 		state.view = view;
 		doc.body.dataset.view = view;
 		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
@@ -1299,6 +1300,9 @@
 
 		doc.addEventListener('click', function (e) {
 			var t;
+			if (e.target.closest('.plan-more')) return setPlanMenu(!$q('.plan-menu').classList.contains('is-open'));
+			// any other click closes the menu; a click on one of its items still runs below
+			if ($q('.plan-menu.is-open')) setPlanMenu(false);
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
@@ -1386,10 +1390,27 @@
 
 		doc.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') return;
+			if ($q('.plan-menu.is-open')) { setPlanMenu(false); $q('.plan-more').focus(); return; }
 			var open = $$('.sheet[aria-hidden="false"]').filter(function (s) { return s.id !== 'reading-modal'; });
 			if (open.length) closeSheet(open[open.length - 1]);
 		});
 	}
+
+	/* Phones: the ••• menu holding Edit / Display / Save (on wider screens they sit inline) */
+	function setPlanMenu(open) {
+		var menu = $q('.plan-menu'), btn = $q('.plan-more');
+		if (!menu || menu.classList.contains('is-open') === open) return;
+		menu.classList.toggle('is-open', open);
+		btn.setAttribute('aria-expanded', String(open));
+		if (!open) return;
+		var panel = $q('.plan-actions', menu);
+		if (motionOK) g.fromTo(panel, { opacity: 0, scale: 0.94, y: -6 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
+		if (usingKeyboard) $q('.btn', panel).focus();
+	}
+	// only move focus into the menu when it was opened from the keyboard
+	var usingKeyboard = false;
+	doc.addEventListener('keydown', function () { usingKeyboard = true; }, true);
+	doc.addEventListener('pointerdown', function () { usingKeyboard = false; }, true);
 
 	/* Move the engine's display controls into the Display sheet */
 	function mountDisplayControls() {

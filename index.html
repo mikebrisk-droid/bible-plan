@@ -50,6 +50,7 @@
 	<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
 	<symbol id="i-print" viewBox="0 0 24 24"><path d="M7 8.5V3.5h10v5"/><rect x="3.5" y="8.5" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></symbol>
 	<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 20.5h15"/></symbol>
+	<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.1"/><circle cx="12" cy="12" r="1.1"/><circle cx="18.5" cy="12" r="1.1"/></symbol>
 	<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
 	<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
 	<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
@@ -98,10 +99,13 @@
 						<h1 id="plan-name">My plan</h1>
 						<p id="plan-sub" class="muted"></p>
 					</div>
-					<div class="plan-actions">
-						<a class="btn btn-quiet" href="#create" data-edit-plan><svg class="icon"><use href="#i-edit"/></svg><span>Edit</span></a>
-						<button type="button" class="btn btn-quiet" data-open-sheet="display-sheet"><svg class="icon"><use href="#i-sliders"/></svg><span>Display</span></button>
-						<button type="button" class="btn btn-quiet" data-open-sheet="export-sheet"><svg class="icon"><use href="#i-download"/></svg><span>Save</span></button>
+					<div class="plan-menu">
+						<button type="button" class="icon-btn plan-more" aria-label="Plan options" aria-haspopup="true" aria-expanded="false" aria-controls="plan-actions"><svg class="icon"><use href="#i-more"/></svg></button>
+						<div class="plan-actions" id="plan-actions">
+							<a class="btn btn-quiet" href="#create" data-edit-plan><svg class="icon"><use href="#i-edit"/></svg><span>Edit</span></a>
+							<button type="button" class="btn btn-quiet" data-open-sheet="display-sheet"><svg class="icon"><use href="#i-sliders"/></svg><span>Display</span></button>
+							<button type="button" class="btn btn-quiet" data-open-sheet="export-sheet"><svg class="icon"><use href="#i-download"/></svg><span>Save</span></button>
+						</div>
 					</div>
 				</header>
 
