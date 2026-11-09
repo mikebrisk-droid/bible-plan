@@ -502,8 +502,24 @@ main {
 	background: url(assets/hero-arches.webp) center / 100% 100% no-repeat;
 	-webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 24%);
 	mask-image: linear-gradient(90deg, transparent 0%, #000 24%);
+	opacity: .8;
 	pointer-events: none;
 }
+/* Plan cards 2–6 take the other hero arts in turn (data-art, set in shell.js). Those images
+   have their own rounded dark corners, so each is drawn slightly oversize to trim them. */
+.today-card[data-art="1"]::before {
+	aspect-ratio: 2000 / 750;
+	background-image: url(assets/hero-steps.webp);
+	background-size: 103% 107%;
+}
+.today-card[data-art="2"]::before,
+.today-card[data-art="3"]::before,
+.today-card[data-art="4"]::before,
+.today-card[data-art="5"]::before { aspect-ratio: 2000 / 540; background-size: 102% 107%; }
+.today-card[data-art="2"]::before { background-image: url(assets/hero-beams.webp); }
+.today-card[data-art="3"]::before { background-image: url(assets/hero-bars.webp); }
+.today-card[data-art="4"]::before { background-image: url(assets/hero-diamond.webp); }
+.today-card[data-art="5"]::before { background-image: url(assets/hero-portal.webp); }
 .today-card > * { position: relative; z-index: 1; }
 
 /* Phones: the card is tall, so lay the art along the bottom, left of the progress ring */
@@ -513,7 +529,7 @@ main {
 		right: auto;
 		left: -48%;
 		width: 160%;
-		opacity: .75;
+		opacity: .6;
 		-webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
 		mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
 	}
@@ -1151,6 +1167,32 @@ main {
 .plan-head p { margin-top: 8px; }
 .plan-actions { display: flex; gap: 2px; margin-right: -12px; }
 .plan-more { display: none; }
+.js-remove-plan.is-confirm, .js-remove-plan.is-confirm:hover { color: #e5484d; }
+
+/* More than one plan: chips above the plan name switch between them, + adds another */
+.plan-switch { margin-bottom: 20px; }
+.plan-switch-add { display: inline-grid; place-items: center; width: 36px; padding: 0; }
+.plan-switch-add .icon { width: 18px; height: 18px; }
+
+/* Home: one card per plan, the current one first; two columns on wide screens, where the
+   half-width cards lay their art along the bottom as on phones (an odd last card spans both) */
+.today-grid { display: grid; gap: 14px; margin-top: 24px; }
+.today-grid .today-card { margin-top: 0; }
+@media (min-width: 980px) {
+	.today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.today-grid .today-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+	.today-grid .today-card:not(:last-child:nth-child(odd))::before {
+		top: auto;
+		right: auto;
+		left: -48%;
+		width: 160%;
+		opacity: .6;
+		-webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
+		mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
+	}
+}
+.today-plan { color: inherit; text-decoration: none; }
+.today-plan:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Phones: Edit / Display / Save fold into a ••• menu beside the plan name */
 @media (max-width: 759px) {

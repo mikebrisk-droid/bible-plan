@@ -140,8 +140,22 @@
 
 	/* ---------- Active plan ---------- */
 
-	var ACTIVE_KEY = 'rtb-active-plan';
-	var state = { view: null, active: store.get(ACTIVE_KEY), filter: 'all' };
+	/* Someone can follow several plans at once (say, a personal one and their church's).
+	   mine.list holds them all; state.active is the one the engine has loaded (shown on My plan).
+	   Reading progress is already keyed by each plan's settings (app.js currentKey), so plans
+	   keep their own checkmarks. The old single-plan key is migrated on first load. */
+	var PLANS_KEY = 'rtb-plans', ACTIVE_KEY = 'rtb-active-plan';
+	function newId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+	var mine = (function () {
+		var m = store.get(PLANS_KEY);
+		if (m && Array.isArray(m.list)) return m;
+		m = { list: [], current: null };
+		var old = store.get(ACTIVE_KEY);
+		if (old && old.query) { old.id = newId(); m.list.push(old); m.current = old.id; }
+		return m;
+	})();
+	function findPlan(id) { return mine.list.filter(function (e) { return e.id === id; })[0] || null; }
+	var state = { view: null, active: findPlan(mine.current) || mine.list[0] || null, filter: 'all' };
 
 	function displayPrefs() {
 		function on(id) { var el = doc.getElementById(id); return el && el.checked ? '1' : '0'; }
@@ -167,16 +181,70 @@
 		return q;
 	}
 
-	function saveActive() { store.set(ACTIVE_KEY, state.active); }
+	function saveActive() {
+		mine.current = state.active ? state.active.id : null;
+		store.set(PLANS_KEY, mine);
+	}
 
+	/* Adds a plan and makes it current, or (meta.replace) rewrites the current one, as Edit does */
 	function startPlan(params, meta, display) {
 		var q = toQuery(params, display);
-		state.active = { query: '?' + q.toString(), name: meta.name, named: !!meta.named, planId: meta.planId || null };
+		var fields = { query: '?' + q.toString(), name: meta.name, named: !!meta.named, planId: meta.planId || null };
+		var adding = !(meta.replace && state.active);
+		if (adding) { state.active = { id: newId() }; mine.list.push(state.active); }
+		for (var k in fields) state.active[k] = fields[k];
 		saveActive();
 		loadFromParams(q);
 		if (location.hash !== '#plan') location.hash = 'plan';
 		else renderPlanView();
-		toast(meta.toast || 'Plan started');
+		toast(meta.toast || (adding && mine.list.length > 1 ? 'Plan added' : 'Plan started'));
+	}
+
+	function switchPlan(id) {
+		var e = findPlan(id);
+		if (!e || e === state.active) return false;
+		state.active = e;
+		saveActive();
+		loadFromParams(new URLSearchParams(e.query));
+		return true;
+	}
+
+	function removePlan(id) {
+		var e = findPlan(id);
+		if (!e) return;
+		mine.list.splice(mine.list.indexOf(e), 1);
+		if (e === state.active) {
+			state.active = mine.list[0] || null;
+			if (state.active) loadFromParams(new URLSearchParams(state.active.query));
+			else history.replaceState(null, '', location.pathname + location.hash);
+		}
+		saveActive();
+		renderView(state.view);
+		toast('Plan removed');
+	}
+
+	/* The parts of a plan's query that decide its days; joined the same way as app.js currentKey */
+	var KEY_FIELDS = ['start', 'total', 'order', 'logic', 'daysofweek', 'books', 'dailypsalm', 'dailyproverb'];
+	function keyOf(query) {
+		var q = new URLSearchParams(query);
+		return KEY_FIELDS.map(function (k) { return q.get(k) || ''; }).join('|');
+	}
+
+	/* Days and progress-key prefix for any plan. The current one comes from the engine; the others
+	   are built with the same engine call (as planStats does) and cached by query. */
+	var ctxCache = {};
+	function ctxFor(entry) {
+		if (!entry || entry === state.active) return { days: planDays(), key: window.currentKey };
+		if (ctxCache[entry.query]) return ctxCache[entry.query];
+		var q = new URLSearchParams(entry.query), order = q.get('order'), days = [];
+		try {
+			days = getPlanData(q.get('lang') || 'en', order, parseYmd(q.get('start')) || today(), parseInt(q.get('total'), 10),
+				expandBooks(order, q.get('books')),
+				(q.get('daysofweek') || '').split(',').filter(Boolean).map(function (n) { return n - 1; }),
+				q.get('dailypsalm') === '1', q.get('dailyproverb') === '1', q.get('otntoverlap') === '1', q.get('reverse') === '1',
+				q.get('logic'), q.get('includeurls') === '1', q.get('urlsite') || 'biblegateway', q.get('urlversion') || 'NIV').days;
+		} catch (err) { days = []; }
+		return (ctxCache[entry.query] = { days: days, key: keyOf(entry.query) });
 	}
 
 	window.onPlanQuery = function (query) {
@@ -191,24 +259,26 @@
 		if (state.active && state.active.name) return state.active.name;
 		return String(window.currentTitle || 'My plan').split(' - ')[0];
 	}
+	function entryName(e) { return e === state.active ? planName() : e.name || 'Reading plan'; }
 
 	function currentParams() { return new URLSearchParams(window.currentQuery || ''); }
 
 	function planDays() { return window.lastPlanDays || []; }
-	function dayKey(i) { return window.currentKey + '-' + i; }
 
-	function progress() {
+	function progress(ctx) {
+		ctx = ctx || ctxFor();
 		var total = 0, done = 0;
-		planDays().forEach(function (d, i) {
+		ctx.days.forEach(function (d, i) {
 			if (!d.formattedReading) return;
 			total++;
-			if (isRead(dayKey(i))) done++;
+			if (isRead(ctx.key + '-' + i)) done++;
 		});
 		return { total: total, done: done, pct: total ? Math.round(done / total * 100) : 0 };
 	}
 
-	function todayInfo() {
-		var days = planDays(), t = today(), n = 0, info = { status: 'none', behind: 0 };
+	function todayInfo(ctx) {
+		ctx = ctx || ctxFor();
+		var days = ctx.days, t = today(), n = 0, info = { status: 'none', behind: 0 };
 		if (!days.length) return info;
 		var first = days[0].date, last = days[days.length - 1].date;
 		for (var i = 0; i < days.length; i++) {
@@ -216,7 +286,7 @@
 			if (!d.formattedReading) continue;
 			n++;
 			var dd = new Date(d.date.getFullYear(), d.date.getMonth(), d.date.getDate());
-			if (dd < t && !isRead(dayKey(i))) info.behind++;
+			if (dd < t && !isRead(ctx.key + '-' + i)) info.behind++;
 			if (sameDay(dd, t)) { info.status = 'today'; info.index = i; info.dayNumber = n; }
 			else if (dd > t && info.next == null) { info.next = i; }
 		}
@@ -301,16 +371,15 @@
 		return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 	}
 
-	function ringHtml() {
-		return '<div class="ring" aria-hidden="true"><svg viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="42"/>' +
+	function ringHtml(pct) {
+		return '<div class="ring" data-pct="' + pct + '" aria-hidden="true"><svg viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="42"/>' +
 			'<circle class="ring-fill" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>' +
 			'<div class="ring-label"><span class="ring-num">0%</span><small>read</small></div></div>';
 	}
 
-	function animateRing(root, from) {
-		var ring = $q('.ring', root);
+	function animateRing(ring, from) {
 		if (!ring) return;
-		var pct = progress().pct, fill = $q('.ring-fill', ring), num = $q('.ring-num', ring), C = 263.9;
+		var pct = +ring.dataset.pct, fill = $q('.ring-fill', ring), num = $q('.ring-num', ring), C = 263.9;
 		if (!motionOK) {
 			fill.setAttribute('stroke-dashoffset', C * (1 - pct / 100));
 			num.textContent = pct + '%';
@@ -321,10 +390,13 @@
 		g.to(counter, { v: pct, duration: 1.2, ease: 'power3.out', delay: from == null ? 0.25 : 0, onUpdate: function () { num.textContent = Math.round(counter.v) + '%'; } });
 	}
 
-	function todayCard() {
-		var info = todayInfo(), days = planDays(), chip, ref, meta = '', actions;
+	// each plan's card gets the next hero art in turn; six in all (see .today-card[data-art])
+	var HERO_ARTS = 6;
+	function todayCard(entry, index) {
+		var ctx = ctxFor(entry), info = todayInfo(ctx), days = ctx.days, chip, ref, meta = '', actions;
+		var toPlan = 'href="#plan" data-switch-plan="' + entry.id + '"';
 		if (info.status === 'today') {
-			var day = days[info.index], key = dayKey(info.index), done = isRead(key);
+			var day = days[info.index], key = ctx.key + '-' + info.index, done = isRead(key);
 			chip = '<span class="chip">Day ' + info.dayNumber + ' of ' + info.totalReadings + '</span>';
 			ref = esc(day.formattedReading);
 			meta = icon('clock') + '<span>' + minutesOf(day) + ' min read</span>';
@@ -336,29 +408,31 @@
 			chip = '<span class="chip">' + (info.status === 'rest' ? 'Rest day' : 'Starts ' + fmt(next ? next.date : new Date(), { weekday: 'short', month: 'short', day: 'numeric' })) + '</span>';
 			ref = next ? esc(next.formattedReading) : '';
 			meta = next ? icon('calendar') + '<span>Next reading · ' + fmt(next.date, { weekday: 'long' }) + '</span>' : '';
-			actions = '<a class="btn btn-primary btn-lg" href="#plan">' + icon('myplan') + '<span>View plan</span></a>';
+			actions = '<a class="btn btn-primary btn-lg" ' + toPlan + '>' + icon('myplan') + '<span>View plan</span></a>';
 		} else {
 			chip = '<span class="chip">Complete</span>';
 			ref = 'You finished the plan.';
 			actions = '<a class="btn btn-primary btn-lg" href="#plans">Find your next plan</a>';
 		}
 		if (info.behind > 0 && info.status !== 'done') {
-			chip += '<a class="chip chip-accent" href="#plan">' + info.behind + ' to catch up</a>';
+			chip += '<a class="chip chip-accent" ' + toPlan + '>' + info.behind + ' to catch up</a>';
 		}
-		return '<article class="today-card" data-anim>' +
-			'<div class="today-top">' + chip + '<span class="muted">' + esc(planName()) + '</span></div>' +
+		return '<article class="today-card" data-anim data-plan-id="' + entry.id + '" data-art="' + ((index || 0) % HERO_ARTS) + '">' +
+			'<div class="today-top">' + chip + '<a class="today-plan muted" ' + toPlan + '>' + esc(entryName(entry)) + '</a></div>' +
 			'<div><h2 class="today-ref">' + ref + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
-			ringHtml() +
+			ringHtml(progress(ctx).pct) +
 			'<div class="today-actions">' + actions + '</div></article>';
 	}
 
+	function entryForTemplate(id) { return mine.list.filter(function (e) { return e.planId === id; })[0] || null; }
+
 	function planCard(p) {
-		var current = state.active && state.active.planId === p.id;
+		var entry = entryForTemplate(p.id), badge = !entry ? '' : entry === state.active ? 'Current' : 'Started';
 		return '<button type="button" class="plan-card" data-plan="' + p.id + '" data-tags="' + p.tags + '">' +
 			'<span class="cover">' + cover(p.art) + '</span>' +
 			'<span class="plan-card-body"><strong>' + esc(p.title) + '</strong>' +
 			'<span class="meta" data-meta="' + p.id + '">' + durationLabel(p.params.total) + '</span>' +
-			(current ? '<span class="badge">Current</span>' : '') + '</span></button>';
+			(badge ? '<span class="badge">' + badge + '</span>' : '') + '</span></button>';
 	}
 
 	function renderHome() {
@@ -367,7 +441,8 @@
 			(state.active ? '<a class="btn greeting-action" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</header>';
 
 		if (state.active) {
-			html += todayCard();
+			var cards = [state.active].concat(mine.list.filter(function (e) { return e !== state.active; })).map(todayCard);
+			html += cards.length > 1 ? '<div class="today-grid">' + cards.join('') + '</div>' : cards[0];
 		} else {
 			html += '<section class="section"><div class="section-head" data-anim><h2>Start here</h2></div><div class="start-grid">' +
 				'<button type="button" class="start-card is-featured" data-plan="year"><span class="start-icon">' + icon('book') + '</span><span class="start-text"><strong>Bible in a Year</strong><small>The classic, one year</small></span></button>' +
@@ -429,7 +504,7 @@
 		var p = planById(id), sheet = $q('#plan-sheet');
 		if (!p) return;
 		sheetPlan = p;
-		var isCurrent = state.active && state.active.planId === p.id;
+		var isCurrent = !!entryForTemplate(p.id);
 		$q('#plan-sheet-cover').innerHTML = cover(p.art);
 		$q('#plan-sheet-title').textContent = p.title;
 		$q('#plan-sheet-blurb').textContent = p.blurb;
@@ -439,7 +514,7 @@
 			'<li>' + icon('check') + daysLabel(p.params.daysofweek || BASE.daysofweek) + '</li>';
 		$q('#plan-sheet-first').innerHTML = '';
 		$q('#plan-sheet-start').textContent = isCurrent ? 'Continue plan' : 'Start today';
-		$q('#plan-sheet-note').textContent = state.active && !isCurrent ? 'This replaces your current plan.' : '';
+		$q('#plan-sheet-note').textContent = '';
 		sheets.open(sheet);
 
 		setTimeout(function () {
@@ -870,7 +945,7 @@
 			if (d.createMode) return chooseCreateMode(d.createMode);
 			if (t.id === 'step-next') {
 				if (B.step < LAST) goStep(B.step + 1);
-				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null }, builderDisplay());
+				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null, replace: createMode === 'edit' }, builderDisplay());
 				return;
 			}
 			if (t.id === 'step-back') return goStep(B.step - 1);
@@ -1022,8 +1097,18 @@
 		updateProgress(false);
 	}
 
+	function renderPlanSwitch() {
+		var el = $q('.plan-switch');
+		el.hidden = mine.list.length < 2;
+		if (el.hidden) { el.innerHTML = ''; return; }
+		el.innerHTML = mine.list.map(function (e) {
+			return '<button type="button" class="filter" data-switch-plan="' + e.id + '" aria-pressed="' + (e === state.active) + '">' + esc(entryName(e)) + '</button>';
+		}).join('') + '<a class="filter plan-switch-add" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '</a>';
+	}
+
 	function updatePlanHead() {
 		var p = currentParams(), days = planDays();
+		renderPlanSwitch();
 		$q('#plan-name').textContent = planName();
 		var sub = [];
 		if (days.length) {
@@ -1094,6 +1179,11 @@
 
 	window.onPlanRendered = function () {
 		markCompleteWeeks(false);
+		// a plan opened from a link with no name takes the engine's title, so the switcher can label it
+		if (state.active && !state.active.name && window.currentTitle) {
+			state.active.name = String(window.currentTitle).split(' - ')[0];
+			saveActive();
+		}
 		if (state.view === 'plan' && state.active) {
 			updatePlanHead();
 			updateProgress(true);
@@ -1195,7 +1285,7 @@
 				var cards = $$('.plan-card:not([hidden]), .start-card, .plan-empty > *', next);
 				if (cards.length) g.fromTo(cards, { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, stagger: 0.05, delay: 0.12, ease: 'power3.out', clearProps: 'transform,opacity' });
 			}
-			if (view === 'home') animateRing(next);
+			if (view === 'home') $$('.ring', next).forEach(function (r) { animateRing(r); });
 			if (view === 'plan') animateOutput();
 		}
 
@@ -1301,6 +1391,28 @@
 		doc.addEventListener('click', function (e) {
 			var t;
 			if (e.target.closest('.plan-more')) return setPlanMenu(!$q('.plan-menu').classList.contains('is-open'));
+			// Remove asks once more in place before it goes
+			if ((t = e.target.closest('.js-remove-plan'))) {
+				if (!t.classList.contains('is-confirm')) {
+					t.classList.add('is-confirm');
+					$q('span', t).textContent = 'Remove this plan?';
+					clearTimeout(t._reset);
+					t._reset = setTimeout(function () { resetRemove(t); }, 3500);
+					return;
+				}
+				resetRemove(t);
+				setPlanMenu(false);
+				if (state.active) removePlan(state.active.id);
+				return;
+			}
+			if ((t = e.target.closest('[data-switch-plan]'))) {
+				// links (Home cards) carry on to #plan; the chips on My plan re-render in place
+				if (switchPlan(t.dataset.switchPlan) && state.view === 'plan' && t.tagName === 'BUTTON') {
+					renderPlanView();
+					window.scrollTo({ top: 0, behavior: motionOK ? 'smooth' : 'auto' });
+				}
+				if (t.tagName === 'BUTTON') return;
+			}
 			// any other click closes the menu; a click on one of its items still runs below
 			if ($q('.plan-menu.is-open')) setPlanMenu(false);
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
@@ -1326,7 +1438,8 @@
 			}
 
 			if ((t = e.target.closest('.js-mark'))) {
-				var key = t.dataset.key, done = !isRead(key), before = progress().pct;
+				var key = t.dataset.key, done = !isRead(key), card = t.closest('.today-card');
+				var ring = card && $q('.ring', card), before = ring ? +ring.dataset.pct : 0;
 				setRead(key, done);
 				var box = doc.getElementById(key);
 				if (box) box.checked = done;
@@ -1334,7 +1447,10 @@
 				t.classList.toggle('is-done', done);
 				t.innerHTML = done ? icon('check') + '<span>Done</span>' : '<span>Mark as read</span>';
 				if (motionOK && done) g.fromTo(t, { scale: 0.92 }, { scale: 1, duration: 0.7, ease: 'elastic.out(1, 0.45)' });
-				animateRing($q('#view-home'), before);
+				if (ring) {
+					ring.dataset.pct = progress(ctxFor(findPlan(card.dataset.planId))).pct;
+					animateRing(ring, before);
+				}
 				return;
 			}
 
@@ -1354,7 +1470,8 @@
 			if (e.target.closest('#plan-sheet-start') && sheetPlan) {
 				var plan = sheetPlan;
 				sheets.close($q('#plan-sheet'), function () {
-					if (state.active && state.active.planId === plan.id) { location.hash = 'plan'; return; }
+					var existing = entryForTemplate(plan.id);
+					if (existing) { switchPlan(existing.id); location.hash = 'plan'; return; }
 					var params = {}, k;
 					for (k in plan.params) params[k] = plan.params[k];
 					params.start = ymd(today());
@@ -1397,8 +1514,15 @@
 	}
 
 	/* Phones: the ••• menu holding Edit / Display / Save (on wider screens they sit inline) */
+	function resetRemove(btn) {
+		clearTimeout(btn._reset);
+		btn.classList.remove('is-confirm');
+		$q('span', btn).textContent = 'Remove';
+	}
+
 	function setPlanMenu(open) {
 		var menu = $q('.plan-menu'), btn = $q('.plan-more');
+		if (!open) $$('.js-remove-plan.is-confirm').forEach(resetRemove);
 		if (!menu || menu.classList.contains('is-open') === open) return;
 		menu.classList.toggle('is-open', open);
 		btn.setAttribute('aria-expanded', String(open));
@@ -1445,11 +1569,16 @@
 		var linked = ['start', 'total', 'books', 'order'].some(function (k) { return params.has(k); });
 
 		if (linked) {
-			if (!state.active || state.active.query !== location.search) {
+			var k = keyOf(location.search);
+			var known = state.active && keyOf(state.active.query) === k ? state.active : mine.list.filter(function (e) { return keyOf(e.query) === k; })[0];
+			if (known) {
+				state.active = known;
+			} else {
 				var match = matchTemplate(params), given = (params.get('name') || '').trim().slice(0, 60);
-				state.active = { query: location.search, name: given || (match ? match.title : null), named: !!given, planId: match && !given ? match.id : null };
-				saveActive();
+				state.active = { id: newId(), query: location.search, name: given || (match ? match.title : null), named: !!given, planId: match && !given ? match.id : null };
+				mine.list.push(state.active);
 			}
+			saveActive();
 			loadFromParams(params);
 		} else if (state.active) {
 			loadFromParams(new URLSearchParams(state.active.query));
