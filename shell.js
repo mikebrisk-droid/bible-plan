@@ -6,6 +6,8 @@
 	'use strict';
 
 	var doc = document;
+	/* Every plan reads on Verse at a Time in the NASB unless the reader picks otherwise */
+	var DEFAULT_SITE = 'verseatatime', DEFAULT_VERSION = 'NASB';
 	var g = window.gsap;
 	var motionOK = !!g && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -134,7 +136,7 @@
 			data = getPlanData('en', p.order, parseYmd(p.start) || today(), parseInt(p.total, 10),
 				expandBooks(p.order, p.books),
 				p.daysofweek.split(',').filter(Boolean).map(function (n) { return n - 1; }),
-				p.dailypsalm === '1', p.dailyproverb === '1', p.otntoverlap === '1', p.reverse === '1', p.logic, false, 'biblegateway', 'NIV');
+				p.dailypsalm === '1', p.dailyproverb === '1', p.otntoverlap === '1', p.reverse === '1', p.logic, false, DEFAULT_SITE, DEFAULT_VERSION);
 		} catch (e) {
 			return null;
 		}
@@ -261,7 +263,7 @@
 				expandBooks(order, q.get('books')),
 				(q.get('daysofweek') || '').split(',').filter(Boolean).map(function (n) { return n - 1; }),
 				q.get('dailypsalm') === '1', q.get('dailyproverb') === '1', q.get('otntoverlap') === '1', q.get('reverse') === '1',
-				q.get('logic'), q.get('includeurls') === '1', q.get('urlsite') || 'biblegateway', q.get('urlversion') || 'NIV').days;
+				q.get('logic'), q.get('includeurls') === '1', q.get('urlsite') || DEFAULT_SITE, q.get('urlversion') || DEFAULT_VERSION).days;
 		} catch (err) { days = []; }
 		return (ctxCache[entry.query] = { days: days, key: keyOf(entry.query) });
 	}
@@ -568,7 +570,7 @@
 			days: [1, 2, 3, 4, 5, 6, 7],
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
 			nodates: false, stats: false, dailystats: false, includeurls: false,
-			urlsite: 'biblegateway', urlversion: 'NIV',
+			urlsite: DEFAULT_SITE, urlversion: DEFAULT_VERSION,
 			name: '', customStart: false, customTotal: false
 		};
 	}
@@ -1513,7 +1515,10 @@
 					var params = {}, k;
 					for (k in plan.params) params[k] = plan.params[k];
 					params.start = ymd(today());
-					startPlan(params, { name: plan.title, planId: plan.id });
+					var display = displayPrefs();
+					display.urlsite = DEFAULT_SITE;
+					display.urlversion = DEFAULT_VERSION;
+					startPlan(params, { name: plan.title, planId: plan.id }, display);
 				});
 				return;
 			}
@@ -1623,7 +1628,7 @@
 		} else {
 			loadFromParams(toQuery(PLANS[0].params, {
 				format: 'list', lang: $q('#options-language').value || 'en', checkbox: '1', colors: '1', stats: '0',
-				dailystats: '0', nodates: '0', includeurls: '0', urlsite: 'biblegateway', urlversion: 'NIV'
+				dailystats: '0', nodates: '0', includeurls: '0', urlsite: DEFAULT_SITE, urlversion: DEFAULT_VERSION
 			}));
 		}
 

@@ -1025,10 +1025,10 @@ var VERSE_AT_A_TIME_VERSIONS = {
 function createUrl(verseList, bookUsfm, chapter, site, version) {
 
 	if (!site || site == '') {
-		site = 'biblegateway';
+		site = 'verseatatime';
 	}
 	if (!version || version == '') {
-		version = 'NIV';
+		version = 'NASB';
 	}	
 	
 	var url = '';

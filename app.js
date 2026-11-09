@@ -797,8 +797,8 @@ function resetControls() {
 	$('#settings, #display-sheet').find('input[type=checkbox]').prop('checked', false).prop('disabled', false);
 	$('#settings input[type=radio]').prop('checked', false);
 	$('#options-logic').val('words');
-	$('#options-urlsite').val('biblegateway');
-	$('#options-urlversion').val('NIV').show();
+	$('#options-urlsite').val('verseatatime');
+	$('#options-urlversion').val('NASB').show();
 	$('#options-list').val('');
 }
 
