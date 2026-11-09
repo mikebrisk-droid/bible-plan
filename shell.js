@@ -76,8 +76,22 @@
 		{ id: 'otstory', title: 'Old Testament Story', blurb: 'The Old Testament in order, over six months.', art: 'mountain', tags: 'ot',
 			params: { total: 182, order: 'chronological', books: 'OT', logic: 'chapters' } },
 		{ id: 'genesis', title: 'Genesis in 30 Days', blurb: 'Creation, promise and one unlikely family.', art: 'seed', tags: 'ot',
-			params: { total: 30, order: 'traditional', books: 'GEN', logic: 'chapters' } }
+			params: { total: 30, order: 'traditional', books: 'GEN', logic: 'chapters' } },
+		{ id: 'torah', title: 'The Torah', blurb: 'The five books of Moses in three months.', art: 'tablets', tags: 'ot',
+			params: { total: 90, order: 'traditional', books: 'GEN,EXO,LEV,NUM,DEU', logic: 'words' } },
+		{ id: 'david', title: 'The Stories of David', blurb: 'Shepherd to king, with the psalms he wrote along the way.', art: 'crown', tags: 'ot',
+			params: { total: 40, order: 'list', books: 'david', logic: 'chapters' } },
+		{ id: 'paul', title: 'Paul’s Journey', blurb: 'Acts and Paul’s letters, in the order they happened.', art: 'scroll', tags: 'nt',
+			params: { total: 60, order: 'list', books: 'paul', logic: 'words' } },
+		{ id: 'endtimes', title: 'The End Times', blurb: 'Daniel to Revelation on the last days and the world to come.', art: 'flame', tags: 'nt',
+			params: { total: 40, order: 'list', books: 'endtimes', logic: 'chapters' } },
+		{ id: 'easter', title: 'The Road to Easter', blurb: 'Forty days to the cross and the empty tomb.', art: 'tomb', tags: 'nt',
+			params: { total: 40, order: 'list', books: 'easter', logic: 'chapters' } },
+		{ id: 'christmas', title: 'The Road to Christmas', blurb: 'Twenty-five days from the first promise to the manger.', art: 'branch', tags: 'nt',
+			params: { total: 25, order: 'list', books: 'christmas', logic: 'chapters' } }
 	];
+	/* order 'list' plans read a fixed chapter list (bible.plans.lists); the builder names them by their plan */
+	function listTitle(name) { var p = PLANS.filter(function (x) { return x.params.order === 'list' && x.params.books === name; })[0]; return p ? p.title : 'Reading list'; }
 	PLANS.forEach(function (p) { if (p.params.total <= 90) p.tags += ' short'; });
 	function planById(id) { return PLANS.filter(function (p) { return p.id === id; })[0]; }
 
@@ -103,7 +117,7 @@
 
 	function expandBooks(order, books) {
 		var list = String(books || '').split(',').filter(Boolean);
-		if (order === 'chronological') return list;
+		if (order === 'chronological' || order === 'list') return list;
 		if (order === 'mcheyne') return [];
 		var groups = order === 'alternate' ? { OT: bible.TANAKH_BOOKS, NT: bible.GOSPEL_BOOKS } : { OT: bible.OT_BOOKS, DC: bible.DC_BOOKS, NT: bible.NT_BOOKS };
 		var out = [];
@@ -545,7 +559,7 @@
 		B = {
 			step: 0, start: ymd(today()), total: 365,
 			format: 'list', lang: ($q('#options-language') || {}).value || 'en',
-			order: 'traditional', scope: 'whole', books: [], altBooks: bible.TANAKH_BOOKS.slice(), logic: 'words',
+			order: 'traditional', scope: 'whole', books: [], altBooks: bible.TANAKH_BOOKS.slice(), list: '', logic: 'words',
 			days: [1, 2, 3, 4, 5, 6, 7],
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
 			nodates: false, stats: false, dailystats: false, includeurls: false,
@@ -561,7 +575,9 @@
 		resetBuilder();
 		if (get('order')) B.order = get('order') === 'tanakh' ? 'alternate' : get('order');
 		var books = (get('books') || 'OT,NT').split(',').filter(Boolean);
-		if (B.order === 'alternate') {
+		if (B.order === 'list') {
+			B.list = books[0] || '';
+		} else if (B.order === 'alternate') {
 			B.altBooks = expandBooks('alternate', books.join(','));
 		} else if (B.order === 'chronological') {
 			B.scope = books.indexOf('OT') > -1 && books.indexOf('NT') > -1 ? 'whole' : books.indexOf('NT') > -1 ? 'NT' : 'OT';
@@ -586,6 +602,7 @@
 
 	function booksParam() {
 		if (B.order === 'mcheyne') return 'OT,NT';
+		if (B.order === 'list') return B.list;
 		if (B.order === 'chronological') return B.scope === 'whole' ? 'OT,NT' : B.scope;
 		if (B.order === 'alternate') {
 			var out = [];
@@ -618,6 +635,7 @@
 
 	function builderName() {
 		if (B.order === 'mcheyne') return 'M’Cheyne Plan';
+		if (B.order === 'list') return listTitle(B.list);
 		if (B.order === 'alternate') {
 			var t = hasAll(B.altBooks, bible.TANAKH_BOOKS), gw = hasAll(B.altBooks, bible.GOSPEL_BOOKS);
 			if (t && gw) return 'Tanakh & Gospel Writers';
@@ -661,6 +679,10 @@
 		['alternate', 'Alternate', '<path d="M6 11h13M29 17h13M6 23h13M29 29h13"/><path d="m21 12 6 4M27 18l-6 4M21 24l6 4"/>'],
 		['mcheyne', 'M’Cheyne', '<circle cx="9" cy="10" r="2"/><circle cx="9" cy="17" r="2"/><circle cx="9" cy="24" r="2"/><circle cx="9" cy="31" r="2"/><path d="M15 10h26M15 17h20M15 24h24M15 31h16"/>']
 	];
+	// a plan built from a fixed list keeps that list as a fifth order, so it can be picked again after trying another
+	function orderChoices() {
+		return B.list ? ORDERS.concat([['list', listTitle(B.list), '<path d="M14 11h26M14 19h26M14 27h26M14 35h18"/><circle cx="8" cy="11" r="2"/><circle cx="8" cy="19" r="2"/><circle cx="8" cy="27" r="2"/><circle cx="8" cy="35" r="2"/>']]) : ORDERS;
+	}
 	var LOGICS = [
 		['chapters', 'Chapters', 'The same number of chapters every day.',
 			'<rect x="6" y="10" width="10" height="22" rx="2"/><rect x="19" y="10" width="10" height="22" rx="2"/><rect x="32" y="10" width="10" height="22" rx="2"/>'],
@@ -775,7 +797,7 @@
 
 		} else if (B.step === 2) {
 			h += '<div class="field"><span class="field-label">Order</span>' +
-				boxGrid(ORDERS.map(function (o) { return choiceBox('order', o[0], B.order === o[0], lineArt(o[2]), o[1]); }), 2) + '</div>';
+				boxGrid(orderChoices().map(function (o) { return choiceBox('order', o[0], B.order === o[0], lineArt(o[2]), o[1]); }), 2) + '</div>';
 			if (B.order === 'traditional' || B.order === 'chronological') {
 				var scopes = [['whole', 'Whole Bible', countArt(66, 'books')], ['OT', 'Old Testament', countArt(39, 'books')], ['NT', 'New Testament', countArt(27, 'books')]];
 				if (B.order === 'traditional') scopes.push(['custom', 'Choose books', customBooksArt()]);

@@ -198,5 +198,23 @@ bible.plans = {
             "JHN_1","JHN_2","JHN_3","JHN_4","JHN_5","JHN_6","JHN_7","JHN_8","JHN_9","JHN_10","JHN_11","JHN_12","JHN_13","JHN_14","JHN_15","JHN_16","JHN_17","JHN_18","JHN_19","JHN_20","JHN_21",
             "ACT_1","ACT_2","ACT_3","ACT_4","ACT_5","ACT_6","ACT_7","ACT_8","ACT_9","ACT_10","ACT_11","ACT_12","ACT_13","ACT_14","ACT_15","ACT_16","ACT_17","ACT_18","ACT_19","ACT_20","ACT_21","ACT_22","ACT_23","ACT_24","ACT_25","ACT_26","ACT_27","ACT_28",            
         ],
+    },
+    /* Fixed chapter lists for ready-made plans (order=list, books=<name>) */
+    "lists": {
+        "easter": [
+            "GEN_22","EXO_12","LEV_16","PSA_22","PSA_118","ISA_50","ISA_52","ISA_53","ZEC_9","ZEC_12","MAT_21","MAT_22","MAT_23","MAT_24","MAT_25","MAT_26","MAT_27","MAT_28","MRK_11","MRK_12","MRK_13","MRK_14","MRK_15","MRK_16","LUK_19","LUK_20","LUK_21","LUK_22","LUK_23","LUK_24","JHN_12","JHN_13","JHN_14","JHN_15","JHN_16","JHN_17","JHN_18","JHN_19","JHN_20","JHN_21"
+        ],
+        "christmas": [
+            "GEN_3","GEN_12","GEN_49","NUM_24","2SA_7","PSA_2","PSA_110","ISA_7","ISA_9","ISA_11","ISA_40","ISA_42","ISA_60","ISA_61","JER_23","MIC_5","MAL_3","MAL_4","LUK_1","MAT_1","LUK_2","MAT_2","JHN_1","PHP_2","HEB_1"
+        ],
+        "david": [
+            "1SA_16","1SA_17","1SA_18","1SA_19","PSA_59","1SA_20","1SA_21","PSA_34","PSA_56","1SA_22","PSA_52","PSA_142","1SA_23","PSA_54","1SA_24","PSA_57","1SA_25","1SA_26","1SA_27","1SA_28","1SA_29","1SA_30","1SA_31","2SA_1","2SA_2","2SA_3","2SA_4","2SA_5","2SA_6","2SA_7","2SA_8","2SA_9","2SA_10","2SA_11","2SA_12","PSA_51","2SA_13","2SA_14","2SA_15","PSA_3","PSA_63","2SA_16","2SA_17","2SA_18","2SA_19","2SA_20","2SA_21","2SA_22","2SA_23","2SA_24","1KI_1","1KI_2"
+        ],
+        "paul": [
+            "ACT_9","ACT_11","ACT_13","ACT_14","GAL_1","GAL_2","GAL_3","GAL_4","GAL_5","GAL_6","ACT_15","ACT_16","ACT_17","1TH_1","1TH_2","1TH_3","1TH_4","1TH_5","2TH_1","2TH_2","2TH_3","ACT_18","ACT_19","1CO_1","1CO_2","1CO_3","1CO_4","1CO_5","1CO_6","1CO_7","1CO_8","1CO_9","1CO_10","1CO_11","1CO_12","1CO_13","1CO_14","1CO_15","1CO_16","2CO_1","2CO_2","2CO_3","2CO_4","2CO_5","2CO_6","2CO_7","2CO_8","2CO_9","2CO_10","2CO_11","2CO_12","2CO_13","ACT_20","ROM_1","ROM_2","ROM_3","ROM_4","ROM_5","ROM_6","ROM_7","ROM_8","ROM_9","ROM_10","ROM_11","ROM_12","ROM_13","ROM_14","ROM_15","ROM_16","ACT_21","ACT_22","ACT_23","ACT_24","ACT_25","ACT_26","ACT_27","ACT_28","EPH_1","EPH_2","EPH_3","EPH_4","EPH_5","EPH_6","COL_1","COL_2","COL_3","COL_4","PHM_1","PHP_1","PHP_2","PHP_3","PHP_4","1TI_1","1TI_2","1TI_3","1TI_4","1TI_5","1TI_6","TIT_1","TIT_2","TIT_3","2TI_1","2TI_2","2TI_3","2TI_4"
+        ],
+        "endtimes": [
+            "DAN_7","DAN_8","DAN_9","DAN_10","DAN_11","DAN_12","EZK_37","JOL_2","ZEC_14","ISA_65","ISA_66","MAT_24","MAT_25","MRK_13","LUK_21","JHN_14","1CO_15","1TH_4","1TH_5","2TH_1","2TH_2","2PE_3","REV_1","REV_2","REV_3","REV_4","REV_5","REV_6","REV_7","REV_8","REV_9","REV_10","REV_11","REV_12","REV_13","REV_14","REV_15","REV_16","REV_17","REV_18","REV_19","REV_20","REV_21","REV_22"
+        ]
     }
 }

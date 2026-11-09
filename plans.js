@@ -151,7 +151,10 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 		data.chapterGroups[1].chapters = bible.plans.mcheyne["2"];
 		data.chapterGroups[2].chapters = bible.plans.mcheyne["3"];
 		data.chapterGroups[3].chapters = bible.plans.mcheyne["4"];
-	} else if (order == 'thematic') {	
+	} else if (order == 'list') {
+		// a fixed chapter list from bible.plans.lists, named by the first book param
+		data.chapterGroups[0].chapters = (bible.plans.lists[bookList[0]] || []).slice();
+	} else if (order == 'thematic') {
 		
 		var chapterArray = [],
 			themes = ['epistles','law','history','psalms','poetry','prophecy','gospels'];
