@@ -146,10 +146,10 @@ button { cursor: pointer; }
 /* Logo: the traced mark is used as a mask so it takes the text color */
 .logo {
 	display: block;
-	aspect-ratio: 1552 / 1324;
+	aspect-ratio: 908 / 771;
 	background: currentColor;
-	-webkit-mask: url('assets/logo.svg') center / contain no-repeat;
-	mask: url('assets/logo.svg') center / contain no-repeat;
+	-webkit-mask: url('assets/logo-emblem.svg') center / contain no-repeat;
+	mask: url('assets/logo-emblem.svg') center / contain no-repeat;
 }
 
 /* ---------- Buttons ---------- */
