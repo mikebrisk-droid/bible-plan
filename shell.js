@@ -426,6 +426,25 @@
 		g.to(counter, { v: pct, duration: 1.2, ease: 'power3.out', delay: from == null ? 0.25 : 0, onUpdate: function () { num.textContent = Math.round(counter.v) + '%'; } });
 	}
 
+	/* A reading with its books spelled out ("Genesis 1–3"). A day across several books (a M'Cheyne day)
+	   is set smaller (.is-multi) so it still fits; only a very long one falls back to abbreviations. */
+	var FULL_REF_MAX = 48;
+	function cardRef(day, entry) {
+		var lang = new URLSearchParams(entry && entry.query || window.currentQuery || '').get('lang') || 'en', full = '';
+		try {
+			full = day.pericopes && day.pericopes.length ? formatPericopeRange(lang, day.pericopes, false, '', '', true)
+				: formatChapterRange(lang, day.chapters, false, '', '', true);
+		} catch (err) { full = ''; }
+		// chapter plans range with a hyphen, passage plans with an en dash; the card always uses the dash
+		var text = full && full.length <= FULL_REF_MAX ? full : day.formattedReading;
+		text = text.replace(/(\d)-(\d)/g, '$1–$2');
+		// several books: keep each "Book chapters" on one line, so lines only break after a semicolon
+		var multi = /;|–\D/.test(text);
+		// (or after the dash of a range into another book: "Matthew 4:12–Mark 1:20")
+		if (multi) text = text.split('; ').map(function (part) { return part.replace(/ /g, '\u00a0'); }).join('; ').replace(/–(?=\D)/g, '–\u200b');
+		return { text: text, multi: multi };
+	}
+
 	// each plan's card gets the next hero art in turn; six in all (see .today-card[data-art])
 	var HERO_ARTS = 6;
 	function todayCard(entry, index) {
@@ -434,7 +453,7 @@
 		if (info.status === 'today') {
 			var day = days[info.index], key = ctx.key + '-' + info.index, done = isRead(key);
 			chip = '<span class="chip">Day ' + info.dayNumber + ' of ' + info.totalReadings + '</span>';
-			ref = esc(day.formattedReading);
+			ref = cardRef(day, entry);
 			meta = icon('clock') + '<span>' + minutesOf(day) + ' min read</span>';
 			actions = readingButton(day, 'btn btn-primary btn-lg', icon('book') + '<span>Read</span>') +
 				'<button type="button" class="btn btn-ghost btn-lg js-mark' + (done ? ' is-done' : '') + '" data-key="' + esc(key) + '">' +
@@ -442,12 +461,12 @@
 		} else if (info.status === 'rest' || info.status === 'upcoming') {
 			var next = info.next != null ? days[info.next] : null;
 			chip = '<span class="chip">' + (info.status === 'rest' ? 'Rest day' : 'Starts ' + fmt(next ? next.date : new Date(), { weekday: 'short', month: 'short', day: 'numeric' })) + '</span>';
-			ref = next ? esc(next.formattedReading) : '';
+			ref = next ? cardRef(next, entry) : '';
 			meta = next ? icon('calendar') + '<span>Next reading · ' + fmt(next.date, { weekday: 'long' }) + '</span>' : '';
 			actions = '<a class="btn btn-primary btn-lg" ' + toPlan + '>' + icon('myplan') + '<span>View plan</span></a>';
 		} else {
 			chip = '<span class="chip">Complete</span>';
-			ref = 'You finished the plan.';
+			ref = { text: 'You finished the plan.' };
 			actions = '<a class="btn btn-primary btn-lg" href="#plans">Find your next plan</a>';
 		}
 		if (info.behind > 0 && info.status !== 'done') {
@@ -455,7 +474,7 @@
 		}
 		return '<article class="today-card" data-anim data-plan-id="' + entry.id + '" data-art="' + ((index || 0) % HERO_ARTS) + '">' +
 			'<div class="today-top">' + chip + '<a class="today-plan muted" ' + toPlan + '>' + esc(entryName(entry)) + '</a></div>' +
-			'<div><h2 class="today-ref">' + ref + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
+			'<div><h2 class="today-ref' + (ref.multi ? ' is-multi' : '') + '">' + esc(ref.text || '') + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
 			ringHtml(progress(ctx).pct) +
 			'<div class="today-actions">' + actions + '</div></article>';
 	}

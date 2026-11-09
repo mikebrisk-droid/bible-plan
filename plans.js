@@ -813,7 +813,8 @@ function formatChapterGroupsRange(lang, chapterGroups, isFullname) {
 	return formatChapterRange(lang, mergedChapters, isFullName)
 }
 
-function formatChapterRange(lang, chapters, includeUrls, urlSite, urlVersion) {
+// fullNames: spell book names out ("Genesis 1-3") instead of abbreviating them ("Gen 1-3")
+function formatChapterRange(lang, chapters, includeUrls, urlSite, urlVersion, fullNames) {
 	
 	//isFullname = isFullname || false;
 	
@@ -848,7 +849,7 @@ function formatChapterRange(lang, chapters, includeUrls, urlSite, urlVersion) {
 			previousChapterWasRange = false;
 			
 			// stary with the book name/abbr
-			formatted += bible.getAbbr(bookInfo, lang);
+			formatted += fullNames ? bible.getName(bookInfo, lang) : bible.getAbbr(bookInfo, lang);
 			formattedEnglish += bible.getAbbr(bookInfo, 'en');
 
 			// add the first chapter (unless it's a single chapter book)
@@ -897,7 +898,9 @@ function formatChapterRange(lang, chapters, includeUrls, urlSite, urlVersion) {
 		+ (includeUrls ? '</a>' : '');
 }
 
-function formatPericopeRange(lang, pericopes, includeUrls, urlSite, urlVersion) {
+function formatPericopeRange(lang, pericopes, includeUrls, urlSite, urlVersion, fullNames) {
+
+	var bookLabel = fullNames ? bible.getName : bible.getAbbr;
 
 	if (!pericopes || pericopes == null || pericopes.length == 0) {
         return '';
@@ -984,7 +987,7 @@ function formatPericopeRange(lang, pericopes, includeUrls, urlSite, urlVersion) 
 
 			// show the final book
 			if (firstBookUsfm !== lastBookUsfm) {
-				verseRange += bible.getAbbr(lastBook, lang) + ' ';
+				verseRange += bookLabel(lastBook, lang) + ' ';
 			}
 
 			// show the final chapter an verse
@@ -999,7 +1002,7 @@ function formatPericopeRange(lang, pericopes, includeUrls, urlSite, urlVersion) 
 		}	
 
 		// first pericope
-		formatted += (index > 0 ? '; ' : '') + bible.getAbbr(firstBook, lang) + ' ' + firstChapter;
+		formatted += (index > 0 ? '; ' : '') + bookLabel(firstBook, lang) + ' ' + firstChapter;
 
 		formatted += verseRange;
 	});
