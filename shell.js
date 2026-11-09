@@ -83,67 +83,9 @@
 
 	var FILTERS = [['all', 'All'], ['whole', 'Whole Bible'], ['ot', 'Old Testament'], ['nt', 'New Testament'], ['short', '3 months or less']];
 
-	/* Abstract covers, drawn in a 160×120 box */
-	var ART = {
-		sun: ['#efe4d3', function () {
-			return '<circle cx="80" cy="74" r="32" fill="#c4552b"/><rect y="74" width="160" height="46" fill="#e2d2ba"/>' +
-				'<rect x="38" y="86" width="84" height="4" rx="2" fill="#161513"/><rect x="54" y="96" width="52" height="4" rx="2" fill="#161513"/><rect x="68" y="106" width="24" height="4" rx="2" fill="#161513"/>';
-		}],
-		timeline: ['#dce6e1', function () {
-			return '<rect x="22" y="26" width="72" height="12" rx="6" fill="#2f5d57"/><rect x="44" y="45" width="90" height="12" rx="6" fill="#2f5d57"/>' +
-				'<rect x="30" y="64" width="56" height="12" rx="6" fill="#e9a23b"/><rect x="62" y="83" width="76" height="12" rx="6" fill="#2f5d57"/>';
-		}],
-		four: ['#e7e0f0', function () {
-			return '<rect x="32" y="48" width="18" height="60" rx="9" fill="#4a3c7a"/><rect x="58" y="28" width="18" height="80" rx="9" fill="#4a3c7a"/>' +
-				'<rect x="84" y="62" width="18" height="46" rx="9" fill="#e2725b"/><rect x="110" y="40" width="18" height="68" rx="9" fill="#4a3c7a"/>';
-		}],
-		cross: ['#161513', function () {
-			return '<rect x="72" y="16" width="14" height="78" rx="2" fill="#f4f2ee"/><rect x="48" y="38" width="62" height="14" rx="2" fill="#f4f2ee"/>' +
-				'<circle cx="104" cy="92" r="8" fill="#c4552b"/>';
-		}],
-		dots: ['#f3e5c8', function () {
-			var s = '';
-			for (var i = 0; i < 7; i++) {
-				var x = 26 + i * 18;
-				s += (i === 0 || i === 6)
-					? '<circle cx="' + x + '" cy="60" r="6" fill="none" stroke="#161513" stroke-width="2"/>'
-					: '<circle cx="' + x + '" cy="60" r="7" fill="' + (i === 3 ? '#c4552b' : '#161513') + '"/>';
-			}
-			return s;
-		}],
-		quad: ['#cfe0ec', function () {
-			var c = ['#1f4e79', '#5c88b0', '#1f4e79', '#f4f2ee'];
-			var p = ['M77 57V21A36 36 0 0 0 41 57Z', 'M83 57V21A36 36 0 0 1 119 57Z', 'M83 63H119A36 36 0 0 1 83 99Z', 'M77 63H41A36 36 0 0 0 77 99Z'];
-			return p.map(function (d, i) { return '<path d="' + d + '" fill="' + c[i] + '"/>'; }).join('');
-		}],
-		rays: ['#f6dcae', function () {
-			var s = '<circle cx="80" cy="62" r="16" fill="#b5481f"/>';
-			for (var i = 0; i < 12; i++) {
-				var a = i * Math.PI / 6, x1 = 80 + Math.cos(a) * 25, y1 = 62 + Math.sin(a) * 25, x2 = 80 + Math.cos(a) * 40, y2 = 62 + Math.sin(a) * 40;
-				s += '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#b5481f" stroke-width="4" stroke-linecap="round"/>';
-			}
-			return s;
-		}],
-		waves: ['#d6e5ee', function () {
-			var s = '', colors = ['#2b5f82', '#2b5f82', '#f4f2ee', '#2b5f82'];
-			for (var i = 0; i < 4; i++) {
-				s += '<path d="M-20 ' + (36 + i * 16) + ' q20 -12 40 0 t40 0 t40 0 t40 0 t40 0" fill="none" stroke="' + colors[i] + '" stroke-width="5" stroke-linecap="round"/>';
-			}
-			return s;
-		}],
-		mountain: ['#eadcc9', function () {
-			return '<circle cx="114" cy="36" r="12" fill="#c4552b"/><path d="M6 108 60 40l30 38 18-22 48 52Z" fill="#6e4b2e"/><path d="M40 108 70 74l20 20 12-10 26 24Z" fill="#161513"/>';
-		}],
-		seed: ['#dce8cf', function () {
-			return '<path d="M80 106C80 86 80 64 82 40" fill="none" stroke="#3e6b2f" stroke-width="5" stroke-linecap="round"/>' +
-				'<path d="M81 62c10-18 28-22 40-20-6 16-22 26-40 20Z" fill="#3e6b2f"/><path d="M80 80c-10-14-26-18-38-14 6 14 22 20 38 14Z" fill="#6e9a57"/>' +
-				'<circle cx="82" cy="34" r="7" fill="#161513"/>';
-		}]
-	};
-
+	/* Plan covers: square images in assets/plans, named by each plan's art key */
 	function cover(art) {
-		var a = ART[art] || ART.sun;
-		return '<svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" fill="' + a[0] + '"/>' + a[1]() + '</svg>';
+		return '<img src="assets/plans/' + (art || 'sun') + '.webp" alt="" width="284" height="284" decoding="async">';
 	}
 
 	/* ---------- Plan math (uses the engine directly, without touching the form) ---------- */
