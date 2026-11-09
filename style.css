@@ -2074,7 +2074,8 @@ main {
 .reading-passage h3 {
 	margin-bottom: 20px;
 	font-family: var(--font-ui);
-	font-size: 1.58em;
+	/* headings grow with the text but only so far, so the largest reader sizes stay readable */
+	font-size: min(1.58em, 1em + 16px);
 	font-weight: 700;
 	letter-spacing: -0.03em;
 }
@@ -2121,7 +2122,7 @@ main {
 .reading-passage-text .yv-h {
 	margin: 1em 0 0.3em;
 	font-family: var(--font-ui);
-	font-size: 1.3em;
+	font-size: min(1.3em, 1em + 10px);
 	font-weight: 800;
 	line-height: 1.15;
 	letter-spacing: -0.025em;

@@ -1298,7 +1298,7 @@
 
 	/* ---------- Reader text settings ---------- */
 
-	var READER_SIZES = [15, 17, 19, 21, 24, 28];
+	var READER_SIZES = [15, 17, 19, 21, 24, 28, 32, 36, 40, 44, 48];
 	var READER_KEY = 'rtb-reader';
 
 	function bindReaderTools() {
