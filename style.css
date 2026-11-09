@@ -480,8 +480,9 @@ main {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	gap: 20px 24px;
+	--pad: clamp(22px, 4vw, 36px);
 	margin-top: 24px;
-	padding: clamp(22px, 4vw, 36px);
+	padding: var(--pad);
 	border-radius: var(--r-xl);
 	background: #15161a;
 	color: #fff;
@@ -491,13 +492,18 @@ main {
 
 .today-card .muted { color: rgba(255, 255, 255, 0.62); }
 
-/* Hero art on the right of the card; its left edge fades into the card colour, which matches the art's own background */
+/* Hero art filling the card's height, its graphic centred under the progress ring: the art starts at
+   the ring's centre (the 96px ring sits --pad + 48px in from the right) and slides back by --art-x,
+   the share of its width where its graphic sits. Its left edge fades into the card colour, which
+   matches the art's own background. */
 .today-card::before {
+	--art-x: 0.5;
 	content: '';
 	position: absolute;
 	top: 0;
-	right: 0;
-	bottom: 0;
+	left: calc(100% - var(--pad) - 48px);
+	height: 100%;
+	transform: translateX(calc(var(--art-x) * -100%));
 	aspect-ratio: 3100 / 1000;
 	background: url(assets/hero-arches.webp) center / 100% 100% no-repeat;
 	-webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 24%);
@@ -520,15 +526,21 @@ main {
 .today-card[data-art="3"]::before { background-image: url(assets/hero-bars.webp); }
 .today-card[data-art="4"]::before { background-image: url(assets/hero-diamond.webp); }
 .today-card[data-art="5"]::before { background-image: url(assets/hero-portal.webp); }
+.today-card[data-art="1"]::before,
+.today-card[data-art="2"]::before,
+.today-card[data-art="3"]::before { --art-x: 0.6; }
+.today-card[data-art="4"]::before { --art-x: 0.55; }
+.today-card[data-art="5"]::before { --art-x: 0.58; }
 .today-card > * { position: relative; z-index: 1; }
 
-/* Phones: the card is tall, so lay the art along the bottom, left of the progress ring */
+/* Phones: the card is tall, so lay the art along the bottom, its graphic still under the progress ring */
 @media (max-width: 720px) {
 	.today-card::before {
 		top: auto;
-		right: auto;
-		left: -48%;
+		bottom: 0;
+		transform: translateX(calc(var(--art-x) * -100%));
 		width: 160%;
+		height: auto;
 		opacity: .6;
 		-webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
 		mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
@@ -1207,22 +1219,12 @@ main {
 .plan-switch-add { display: inline-grid; place-items: center; width: 36px; padding: 0; }
 .plan-switch-add .icon { width: 18px; height: 18px; }
 
-/* Home: one card per plan, the current one first; two columns on wide screens, where the
-   half-width cards lay their art along the bottom as on phones (an odd last card spans both) */
+/* Home: one card per plan, the current one first; two columns on wide screens (an odd last card spans both) */
 .today-grid { display: grid; gap: 14px; margin-top: 24px; }
 .today-grid .today-card { margin-top: 0; }
 @media (min-width: 980px) {
 	.today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.today-grid .today-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
-	.today-grid .today-card:not(:last-child:nth-child(odd))::before {
-		top: auto;
-		right: auto;
-		left: -48%;
-		width: 160%;
-		opacity: .6;
-		-webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
-		mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
-	}
 }
 .today-plan { color: inherit; text-decoration: none; }
 .today-plan:hover { text-decoration: underline; text-underline-offset: 3px; }
