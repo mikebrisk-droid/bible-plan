@@ -1443,7 +1443,8 @@
 
 		if (motionOK) {
 			g.from('.brand', { y: -8, opacity: 0, duration: 0.6, ease: 'power3.out' });
-			g.from('.tabbar', { y: -8, opacity: 0, duration: 0.6, delay: 0.05, ease: 'power3.out', clearProps: 'transform,opacity' });
+			var bottomNav = window.matchMedia('(max-width: 759px)').matches;
+			g.from('.tabbar', { y: bottomNav ? 16 : -8, opacity: 0, duration: 0.6, delay: 0.05, ease: 'power3.out', clearProps: 'transform,opacity' });
 		}
 	}
 
