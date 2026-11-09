@@ -56,6 +56,7 @@
 	<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
 	<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
 	<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+	<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
 	<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
 	<symbol id="i-wide" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
 	<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
@@ -113,29 +114,35 @@
 					</div>
 				</header>
 
-				<div class="progress-card" data-anim>
-					<div class="progress-text">
-						<strong id="plan-progress-count">0</strong>
-						<span id="plan-progress-label" class="muted">read</span>
+				<div class="plan-bar" data-anim>
+					<div class="progress-card">
+						<div class="progress-text">
+							<strong id="plan-progress-count">0</strong>
+							<span id="plan-progress-label" class="muted">read</span>
+						</div>
+						<div class="progress-track"><span class="progress-fill" id="plan-progress-fill"></span></div>
+						<button type="button" class="link-btn" id="jump-today" aria-label="Jump to today"><span class="jump-long">Jump to today</span><span class="jump-short">Today</span> <svg class="icon"><use href="#i-arrow"/></svg></button>
 					</div>
-					<div class="progress-track"><span class="progress-fill" id="plan-progress-fill"></span></div>
-					<button type="button" class="link-btn" id="jump-today">Jump to today <svg class="icon"><use href="#i-arrow"/></svg></button>
-				</div>
 
-				<div class="segmented layout-switch" role="radiogroup" aria-label="Layout" data-anim>
-					<button type="button" role="radio" data-format="list">List</button>
-					<button type="button" role="radio" data-format="weeks">Weeks</button>
-					<button type="button" role="radio" data-format="calendar">Calendar</button>
-					<button type="button" role="radio" data-format="books">Books</button>
-					<button type="button" role="radio" data-format="circle" hidden>Wheel</button>
-					<button type="button" role="radio" data-format="circlecal" hidden>Year wheel</button>
-					<span class="seg-sep" aria-hidden="true"></span>
-					<button type="button" role="radio" data-format="matrix">Matrix</button>
-					<button type="button" role="radio" data-format="sections">Sections</button>
-					<button type="button" role="radio" data-format="progress">Progress</button>
-					<button type="button" role="radio" data-format="board">Board</button>
-					<button type="button" role="radio" data-format="weekrows">Week rows</button>
-					<button type="button" role="radio" data-format="habit">Habit</button>
+					<!-- Layout: a dropdown beside the progress bar -->
+					<div class="layout-menu">
+						<button type="button" class="layout-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="layout-options"><span class="layout-current">List</span><svg class="icon"><use href="#i-chevron"/></svg></button>
+						<div class="layout-switch" id="layout-options" role="radiogroup" aria-label="Layout">
+							<button type="button" role="radio" data-format="list">List</button>
+							<button type="button" role="radio" data-format="weeks">Weeks</button>
+							<button type="button" role="radio" data-format="calendar">Calendar</button>
+							<button type="button" role="radio" data-format="books">Books</button>
+							<button type="button" role="radio" data-format="circle" hidden>Wheel</button>
+							<button type="button" role="radio" data-format="circlecal" hidden>Year wheel</button>
+							<span class="seg-sep" aria-hidden="true"></span>
+							<button type="button" role="radio" data-format="matrix">Matrix</button>
+							<button type="button" role="radio" data-format="sections">Sections</button>
+							<button type="button" role="radio" data-format="progress">Progress</button>
+							<button type="button" role="radio" data-format="board">Board</button>
+							<button type="button" role="radio" data-format="weekrows">Week rows</button>
+							<button type="button" role="radio" data-format="habit">Habit</button>
+						</div>
+					</div>
 				</div>
 
 				<div id="output" data-anim></div>

@@ -1193,7 +1193,7 @@
 			jQuery('input[name=formatstyle][value="calendar"]').prop('checked', true).trigger('change');
 			return;
 		}
-		$$('.layout-switch button').forEach(function (b) { b.setAttribute('aria-checked', String(b.dataset.format === format)); });
+		setLayoutChecked(format);
 	}
 
 	function updateProgress(animate) {
@@ -1337,6 +1337,7 @@
 		if (state.view === view) { renderView(view); return; }
 		if (state.view === 'create') createMode = null;
 		setPlanMenu(false);
+		setLayoutMenu(false);
 		state.view = view;
 		doc.body.dataset.view = view;
 		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
@@ -1464,7 +1465,8 @@
 
 		doc.addEventListener('click', function (e) {
 			var t;
-			if (e.target.closest('.plan-more')) return setPlanMenu(!$q('.plan-menu').classList.contains('is-open'));
+			if (e.target.closest('.plan-more')) { setLayoutMenu(false); return setPlanMenu(!$q('.plan-menu').classList.contains('is-open')); }
+			if (e.target.closest('.layout-trigger')) { setPlanMenu(false); return setLayoutMenu(!$q('.layout-menu').classList.contains('is-open')); }
 			// Remove asks once more in place before it goes
 			if ((t = e.target.closest('.js-remove-plan'))) {
 				if (!t.classList.contains('is-confirm')) {
@@ -1489,6 +1491,7 @@
 			}
 			// any other click closes the menu; a click on one of its items still runs below
 			if ($q('.plan-menu.is-open')) setPlanMenu(false);
+			if ($q('.layout-menu.is-open')) setLayoutMenu(false);
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
@@ -1506,7 +1509,7 @@
 			}
 
 			if ((t = e.target.closest('.layout-switch [data-format]'))) {
-				$$('.layout-switch button').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); });
+				setLayoutChecked(t.dataset.format);
 				jQuery('input[name=formatstyle][value="' + t.dataset.format + '"]').prop('checked', true).trigger('change');
 				return;
 			}
@@ -1586,6 +1589,7 @@
 		doc.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') return;
 			if ($q('.plan-menu.is-open')) { setPlanMenu(false); $q('.plan-more').focus(); return; }
+			if ($q('.layout-menu.is-open')) { setLayoutMenu(false); $q('.layout-trigger').focus(); return; }
 			var open = $$('.sheet[aria-hidden="false"]').filter(function (s) { return s.id !== 'reading-modal'; });
 			if (open.length) closeSheet(open[open.length - 1]);
 		});
@@ -1609,6 +1613,31 @@
 		if (motionOK) g.fromTo(panel, { opacity: 0, scale: 0.94, y: -6 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
 		if (usingKeyboard) $q('.btn', panel).focus();
 	}
+	/* Layout dropdown beside the progress bar: the trigger names the current layout */
+	function setLayoutChecked(format) {
+		var current;
+		$$('.layout-switch button').forEach(function (b) {
+			var on = b.dataset.format === format;
+			b.setAttribute('aria-checked', String(on));
+			if (on) current = b;
+		});
+		var label = $q('.layout-current'), trigger = $q('.layout-trigger');
+		if (current && label) {
+			label.textContent = current.textContent;
+			trigger.setAttribute('aria-label', 'Layout: ' + current.textContent);
+		}
+	}
+	function setLayoutMenu(open) {
+		var menu = $q('.layout-menu'), btn = $q('.layout-trigger');
+		if (!menu || menu.classList.contains('is-open') === open) return;
+		menu.classList.toggle('is-open', open);
+		btn.setAttribute('aria-expanded', String(open));
+		if (!open) return;
+		var panel = $q('.layout-switch', menu);
+		if (motionOK) g.fromTo(panel, { opacity: 0, scale: 0.94, y: -6 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
+		if (usingKeyboard) ($q('[aria-checked="true"]', panel) || $q('button', panel)).focus();
+	}
+
 	// only move focus into the menu when it was opened from the keyboard
 	var usingKeyboard = false;
 	doc.addEventListener('keydown', function () { usingKeyboard = true; }, true);

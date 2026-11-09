@@ -1205,15 +1205,46 @@ main {
 
 .plan-head {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
+	align-items: flex-start;
 	justify-content: space-between;
 	gap: 16px;
 }
 .plan-head-text { min-width: 0; }
 .plan-head p { margin-top: 8px; }
-.plan-actions { display: flex; gap: 2px; margin-right: -12px; }
-.plan-more { display: none; }
+/* Edit / Display / Save / Remove fold into a ••• menu beside the plan name */
+.plan-menu { position: relative; flex: none; margin-top: 2px; }
+.plan-more {
+	display: inline-grid;
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--line);
+	color: var(--ink);
+}
+.plan-more .icon { stroke-width: 2.6; }
+.plan-more[aria-expanded="true"] { background: var(--surface-2); }
+.plan-actions {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 30;
+	display: grid;
+	min-width: 200px;
+	margin: 0;
+	padding: 6px;
+	border-radius: var(--r-lg);
+	background: var(--surface);
+	box-shadow: var(--shadow-pop), inset 0 0 0 1px var(--line);
+	transform-origin: top right;
+}
+.plan-menu:not(.is-open) .plan-actions { display: none; }
+.plan-actions .btn {
+	justify-content: flex-start;
+	gap: 12px;
+	min-height: 46px;
+	padding: 0 12px;
+	border-radius: var(--r-sm);
+	color: var(--ink);
+	font-size: 15px;
+}
 .js-remove-plan.is-confirm, .js-remove-plan.is-confirm:hover { color: #e5484d; }
 
 /* More than one plan: chips above the plan name switch between them, + adds another */
@@ -1231,43 +1262,6 @@ main {
 .today-plan { color: inherit; text-decoration: none; }
 .today-plan:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-/* Phones: Edit / Display / Save fold into a ••• menu beside the plan name */
-@media (max-width: 759px) {
-	.plan-head { flex-wrap: nowrap; align-items: flex-start; }
-	.plan-menu { position: relative; flex: none; margin-top: 2px; }
-	.plan-more {
-		display: inline-grid;
-		background: var(--surface);
-		box-shadow: inset 0 0 0 1px var(--line);
-		color: var(--ink);
-	}
-	.plan-more .icon { stroke-width: 2.6; }
-	.plan-more[aria-expanded="true"] { background: var(--surface-2); }
-	.plan-actions {
-		position: absolute;
-		top: calc(100% + 8px);
-		right: 0;
-		z-index: 30;
-		display: grid;
-		min-width: 200px;
-		margin: 0;
-		padding: 6px;
-		border-radius: var(--r-lg);
-		background: var(--surface);
-		box-shadow: var(--shadow-pop), inset 0 0 0 1px var(--line);
-		transform-origin: top right;
-	}
-	.plan-menu:not(.is-open) .plan-actions { display: none; }
-	.plan-actions .btn {
-		justify-content: flex-start;
-		gap: 12px;
-		min-height: 46px;
-		padding: 0 12px;
-		border-radius: var(--r-sm);
-		color: var(--ink);
-		font-size: 15px;
-	}
-}
 
 .progress-card {
 	display: grid;
@@ -1275,13 +1269,13 @@ main {
 	align-items: center;
 	gap: 18px;
 	margin: 24px 0 20px;
-	padding: 16px 20px;
+	padding: 8px 18px;
 	border-radius: var(--r-md);
 	background: var(--surface);
 	box-shadow: var(--shadow);
 }
 .progress-text { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.progress-text strong { font-weight: 680; letter-spacing: -0.02em; font-size: 24px; }
+.progress-text strong { font-weight: 680; letter-spacing: -0.02em; font-size: 20px; }
 .progress-track {
 	height: 8px;
 	border-radius: 8px;
@@ -1297,12 +1291,95 @@ main {
 }
 
 @media (max-width: 600px) {
-	.progress-card { grid-template-columns: 1fr auto; }
+	.progress-card { grid-template-columns: 1fr auto; gap: 8px 18px; padding: 10px 16px 14px; }
 	.progress-track { grid-column: 1 / -1; grid-row: 2; }
 }
 
-.layout-switch { margin-bottom: 18px; }
-.seg-sep { flex: none; width: 1px; margin: 8px 4px; background: var(--line-strong); }
+/* Progress and the layout dropdown share a row above the plan */
+.plan-bar {
+	display: flex;
+	align-items: stretch;
+	gap: 10px;
+	margin: 24px 0 20px;
+}
+.plan-bar .progress-card { flex: 1; min-width: 0; margin: 0; }
+
+/* Jump to today points down the page, to today's reading */
+#jump-today .icon { transform: rotate(90deg); }
+#jump-today:hover .icon { transform: rotate(90deg) translateX(3px); }
+#jump-today { white-space: nowrap; }
+.jump-short { display: none; }
+/* Phones: the row is tight, so the jump link shortens and the dropdown slims */
+@media (max-width: 600px) {
+	.jump-long { display: none; }
+	.jump-short { display: inline; }
+	.layout-trigger { padding: 0 12px 0 14px; }
+}
+
+.layout-menu { position: relative; flex: none; }
+.layout-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	height: 100%;
+	min-height: 40px;
+	padding: 0 16px 0 20px;
+	border: 0;
+	border-radius: var(--r-md);
+	background: var(--surface);
+	box-shadow: var(--shadow);
+	color: var(--ink);
+	font-size: 14px;
+	font-weight: 600;
+	white-space: nowrap;
+	transition: background-color .2s var(--ease);
+}
+.layout-trigger:hover, .layout-trigger[aria-expanded="true"] { background: var(--surface-2); }
+.layout-trigger .icon { width: 16px; height: 16px; color: var(--ink-2); transition: transform .25s var(--ease); }
+.layout-trigger[aria-expanded="true"] .icon { transform: rotate(180deg); }
+.layout-switch {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 30;
+	display: grid;
+	min-width: 200px;
+	padding: 6px;
+	border-radius: var(--r-lg);
+	background: var(--surface);
+	box-shadow: var(--shadow-pop), inset 0 0 0 1px var(--line);
+	transform-origin: top right;
+}
+.layout-menu:not(.is-open) .layout-switch { display: none; }
+.layout-switch button {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 40px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--r-sm);
+	background: transparent;
+	color: var(--ink);
+	font-size: 15px;
+	font-weight: 500;
+	text-align: left;
+}
+.layout-switch button[hidden] { display: none; }
+.layout-switch button:hover { background: var(--surface-2); }
+/* the current layout gets a check, drawn from the same stroke as the icon set */
+.layout-switch button[aria-checked="true"] { font-weight: 650; }
+.layout-switch button[aria-checked="true"]::after {
+	content: '';
+	width: 9px;
+	height: 5px;
+	margin: -3px 2px 0 0;
+	border: solid currentColor;
+	border-width: 0 0 2px 2px;
+	transform: rotate(-45deg);
+}
+.seg-sep { height: 1px; margin: 6px 8px; background: var(--line); }
 
 .plan-empty {
 	display: grid;
@@ -2172,6 +2249,7 @@ html.ps-locked, html.ps-locked body { overflow: hidden; }
 	.layout-board { grid-template-columns: 1fr; }
 }
 .board-col {
+	min-width: 0;
 	padding: 12px;
 	border-radius: var(--r-md);
 	background: var(--bg);
@@ -2190,9 +2268,11 @@ html.ps-locked, html.ps-locked body { overflow: hidden; }
 	line-height: 22px;
 	text-align: center;
 }
-.board-cards { display: grid; gap: 8px; }
+/* tracks are capped at the column so a long reading ellipsizes instead of widening the card */
+.board-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .board-card {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 10px;
 	padding: 12px 14px;
 	border-radius: 12px;
@@ -2649,7 +2729,7 @@ body.has-sheet { overflow: hidden; }
 	@page { margin: 0.5in; }
 
 	body { background: #fff; color: #000; font-size: 10pt; }
-	.appbar, .appbar-blur, .to-top, .plan-head, .progress-card, .layout-switch, .sheet, .toast, .plan-empty,
+	.appbar, .appbar-blur, .to-top, .plan-head, .plan-bar, .sheet, .toast, .plan-empty,
 	#view-home, #view-plans, #view-create { display: none !important; }
 	#view-plan { display: block !important; padding: 0; max-width: none; }
 	main { padding: 0; }
