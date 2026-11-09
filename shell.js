@@ -162,7 +162,12 @@
 	function newId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 	var mine = (function () {
 		var m = store.get(PLANS_KEY);
-		if (m && Array.isArray(m.list)) return m;
+		if (m && Array.isArray(m.list)) {
+			// plans saved while the form couldn't hold a reading list lost it (order=undefined, no books): they can never show a reading
+			var kept = m.list.filter(function (e) { return new URLSearchParams(e.query || '').get('order') !== 'undefined'; });
+			if (kept.length !== m.list.length) { m.list = kept; store.set(PLANS_KEY, m); }
+			return m;
+		}
 		m = { list: [], current: null };
 		var old = store.get(ACTIVE_KEY);
 		if (old && old.query) { old.id = newId(); m.list.push(old); m.current = old.id; }

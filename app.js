@@ -519,6 +519,8 @@ function generate(lang, format, doc) {
 		books = $('.order-chronological input[type=checkbox]:checked').map(function(index, el) { 
 			return $(this).val();
 		}).get();
+	} else if (order == 'list') {
+		books = [$('#options-list').val()];
 	}
 
 	// QUIRK of 2024
@@ -571,6 +573,8 @@ function updateUrlAndTitle() {
 			}			
 		}
 
+	} else if (order == 'list') {
+		books = [$('#options-list').val()];
 	} else {
 		for (var i=0; i<bible.TESTAMENTS.length; i++) {
 			var testament = bible.TESTAMENTS[i];
@@ -652,6 +656,8 @@ function updateUrlAndTitle() {
         }		        
     } else if (order == 'mcheyne') {
         title = 'M\'Cheyne Reading Plan';
+    } else if (order == 'list') {
+        title = 'Reading Plan';
     }
 
     // extras
@@ -793,6 +799,7 @@ function resetControls() {
 	$('#options-logic').val('words');
 	$('#options-urlsite').val('biblegateway');
 	$('#options-urlversion').val('NIV').show();
+	$('#options-list').val('');
 }
 
 function loadFromParams(urlParams) {
@@ -955,6 +962,10 @@ function loadFromParams(urlParams) {
 			$('.order-chronological input[type=checkbox]')
 				.prop('checked',true)
 				.prop('disabled',true);	
+			break;
+
+		case 'list':
+			$('#options-list').val(urlParams.get('books') || '');
 			break;
 
 		default:	
