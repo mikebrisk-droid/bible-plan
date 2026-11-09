@@ -780,7 +780,40 @@ main {
 	max-width: 760px;
 	margin: 0 auto;
 }
-.create-choice { padding-top: 8px; }
+.create-choice { max-width: none; padding-top: 8px; }
+
+/* "Create a New Plan": a full-width dark cover card, art on the right like .today-card */
+.start-hero {
+	position: relative;
+	grid-column: 1 / -1;
+	min-height: clamp(200px, 26vw, 260px);
+	padding: clamp(22px, 4vw, 36px);
+	border-radius: var(--r-xl);
+	background: #15161a;
+	color: #fff;
+	box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+	overflow: hidden;
+}
+/* The art has its own rounded corners, so it's drawn slightly oversize to trim them */
+.start-hero::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	aspect-ratio: 1817 / 866;
+	background: url(assets/hero-create.webp) center / 104% 108% no-repeat;
+	-webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+	mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+	pointer-events: none;
+}
+.start-hero > * { position: relative; z-index: 1; }
+.start-hero strong { font-size: clamp(24px, 3.4vw, 32px); }
+.start-hero small { color: rgba(255, 255, 255, .7); }
+.start-hero .start-icon { background: rgba(255, 255, 255, .12); color: var(--accent); }
+@media (max-width: 720px) {
+	.start-hero::before { opacity: .75; }
+}
 
 .stepper {
 	display: grid;

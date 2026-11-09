@@ -834,7 +834,7 @@
 			? mine.list.map(function (e) { return editCard(e, entryName(e), 'Edit · ' + durationLabel(new URLSearchParams(e.query).get('total'))); })
 			: [editCard(state.active, 'Edit Current Plan', planName())];
 		return '<div class="builder create-choice"><div class="start-grid">' +
-			'<button type="button" class="start-card" data-create-mode="new"><span class="start-icon">' + icon('create') + '</span>' +
+			'<button type="button" class="start-card start-hero" data-create-mode="new"><span class="start-icon">' + icon('create') + '</span>' +
 			'<span class="start-text"><strong>Create a New Plan</strong><small>Start from scratch</small></span></button>' +
 			edits.join('') + '</div></div>';
 	}
