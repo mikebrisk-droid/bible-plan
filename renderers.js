@@ -583,9 +583,10 @@ function statHero(m) {
 	} else {
 		figure = statFigure(Math.max(1, m.due.length), 'of ' + total.toLocaleString(), 'Day');
 		var t = m.todayReading;
-		if (m.behind.length) {
-			var catchUp = m.behind.reduce(function (s, r) { return s + r.minutes; }, 0);
-			line = 'You’re <em>' + m.behind.length + (m.behind.length === 1 ? ' reading' : ' readings') + ' behind</em>,<br>about ' + statMin(catchUp) + ' min to catch up.';
+		// only count readings as missed once someone is checking them off
+		if (m.behind.length && m.done.length) {
+			var catchUp = statDuration(m.behind.reduce(function (s, r) { return s + r.minutes; }, 0));
+			line = 'You’re <em>' + m.behind.length + (m.behind.length === 1 ? ' reading' : ' readings') + ' behind</em>,<br>about ' + catchUp.value + ' ' + catchUp.unit + ' to catch up.';
 		} else if (t && !t.done) {
 			line = 'Today is <em>' + escapeHtml(t.day.formattedReading) + '</em>,<br>about ' + statMin(t.minutes) + ' min.';
 		} else if (t) {
@@ -596,9 +597,9 @@ function statHero(m) {
 		}
 	}
 
-	// the next dozen readings, like an hourly forecast
-	var start = m.status === 'finished' ? Math.max(0, total - 12) : Math.max(0, m.readings.indexOf(m.readings.filter(function (r) { return r.date >= m.today; })[0]));
-	var strip = m.readings.slice(start, start + 12).map(function (r) {
+	// the next week of readings, like an hourly forecast
+	var start = m.status === 'finished' ? Math.max(0, total - 7) : Math.max(0, m.readings.indexOf(m.readings.filter(function (r) { return r.date >= m.today; })[0]));
+	var strip = m.readings.slice(start, start + 7).map(function (r) {
 		var days = Math.round((r.date - m.today) / 864e5),
 			when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? statDate(r.date, { weekday: 'short' }) : statDate(r.date);
 		return '<li class="' + (days === 0 ? 'is-now ' : '') + (r.done ? 'is-done' : '') + '">' +
