@@ -544,11 +544,11 @@ function createFinalStats(days, lang) {
 	var m = planStatsModel(days, lang);
 	if (!m) return '';
 	lastPlanStats = { days: days, lang: lang };
-	return '<div class="plan-stats" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Open plan stats" data-stats-open>' +
+	return '<div class="plan-stats" role="button" tabindex="0" aria-haspopup="dialog" aria-label="View all plan stats" data-stats-open>' +
 		'<dl class="ps-tiles">' + statTiles(m).map(function (t) {
 			return '<div><dt>' + t[0] + '</dt><dd>' + t[1] + '</dd></div>';
 		}).join('') + '</dl>' +
-		'<span class="ps-open-icon" aria-hidden="true">' + STAT_ARROW + '</span>' +
+		'<span class="ps-viewall" aria-hidden="true"><span class="ps-open-icon">' + STAT_ARROW + '</span><span>View all</span></span>' +
 		'</div>';
 }
 
@@ -830,6 +830,12 @@ function statsView(m) {
 		return ghost;
 	}
 
+	// the tiles row has no surface of its own; the ghost takes the tiles' color
+	function tileColor(tiles) {
+		var tile = tiles.querySelector('.ps-tiles div');
+		return getComputedStyle(tile || tiles).backgroundColor;
+	}
+
 	function countUp(scope, delay) {
 		scope.querySelectorAll('[data-n]').forEach(function (el) {
 			var target = Number(el.getAttribute('data-n')), o = { n: 0 };
@@ -852,7 +858,7 @@ function statsView(m) {
 		if (!motion()) return;
 
 		var g = window.gsap, hero = view.querySelector('.ps-hero'), to = hero.getBoundingClientRect(),
-			ghost = ghostAt(tiles.getBoundingClientRect(), getComputedStyle(tiles).backgroundColor);
+			ghost = ghostAt(tiles.getBoundingClientRect(), tileColor(tiles));
 		g.set(hero, { opacity: 0 });
 		g.timeline()
 			.from(view, { opacity: 0, duration: 0.3, ease: 'power1.out' }, 0)
@@ -884,7 +890,7 @@ function statsView(m) {
 		g.timeline({ onComplete: function () { ghost.remove(); done(); } })
 			.to(v.querySelectorAll('.ps-card, .ps-view-bar > *'), { opacity: 0, y: 16, duration: 0.25, stagger: 0.015, ease: 'power2.in' }, 0)
 			.to(hero, { opacity: 0, duration: 0.15 }, 0)
-			.to(ghost, { left: r.left, top: r.top, width: r.width, height: r.height, backgroundColor: getComputedStyle(tiles).backgroundColor, duration: 0.6, ease: 'expo.inOut' }, 0.1)
+			.to(ghost, { left: r.left, top: r.top, width: r.width, height: r.height, backgroundColor: tileColor(tiles), duration: 0.6, ease: 'expo.inOut' }, 0.1)
 			.to(v, { opacity: 0, duration: 0.3 }, 0.35)
 			.to(ghost, { opacity: 0, duration: 0.15 }, 0.6);
 	}
