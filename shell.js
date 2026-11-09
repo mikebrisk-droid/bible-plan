@@ -24,6 +24,20 @@
 		get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
 		set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 	};
+	/* App settings from the menu: sound on toasts, and the toast after each check-off */
+	var SETTINGS_KEY = 'rtb-settings';
+	var settings = (function () {
+		var s = { sound: false, readingToasts: true };
+		try { var saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); for (var k in saved) if (k in s) s[k] = !!saved[k]; } catch (e) {}
+		return s;
+	})();
+	window.rtbSettings = settings;
+	function setSetting(name, value) {
+		settings[name] = value;
+		try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+		if (name === 'sound' && window.ding) window.ding.configure({ sound: value });
+	}
+
 	function isRead(key) { try { return localStorage.getItem(key) === 'true'; } catch (e) { return false; } }
 	function setRead(key, value) { try { localStorage.setItem(key, value ? 'true' : 'false'); } catch (e) {} }
 
@@ -233,7 +247,7 @@
 		loadFromParams(q);
 		if (location.hash !== '#plan') location.hash = 'plan';
 		else renderPlanView();
-		toast(meta.toast || (adding && mine.list.length > 1 ? 'Plan added' : 'Plan started'));
+		toast(meta.toast || (adding && mine.list.length > 1 ? 'Plan added' : 'Plan started'), 'success', { description: entryName(state.active) });
 	}
 
 	function switchPlan(id) {
@@ -248,7 +262,8 @@
 	function removePlan(id) {
 		var e = findPlan(id);
 		if (!e) return;
-		mine.list.splice(mine.list.indexOf(e), 1);
+		var at = mine.list.indexOf(e), wasActive = e === state.active, name = entryName(e);
+		mine.list.splice(at, 1);
 		if (e === state.active) {
 			state.active = mine.list[0] || null;
 			if (state.active) loadFromParams(new URLSearchParams(state.active.query));
@@ -256,7 +271,23 @@
 		}
 		saveActive();
 		renderView(state.view);
-		toast('Plan removed');
+		toast('Plan removed', 'info', { description: name, duration: 6000, action: { label: 'Undo', onClick: function () {
+			restorePlan(e, at, wasActive);
+			return { title: 'Plan restored', type: 'success', action: null, duration: 2500 };
+		} } });
+	}
+
+	// Undo for Remove: the plan goes back where it was, and is current again if it was before
+	function restorePlan(e, at, wasActive) {
+		if (findPlan(e.id)) return;
+		mine.list.splice(Math.min(at, mine.list.length), 0, e);
+		if (wasActive || !state.active) {
+			state.active = e;
+			loadFromParams(new URLSearchParams(e.query));
+			history.replaceState(null, '', location.pathname + e.query + location.hash);
+		}
+		saveActive();
+		renderView(state.view);
 	}
 
 	/* The parts of a plan's query that decide its days; joined the same way as app.js currentKey */
@@ -387,7 +418,11 @@
 	/* ---------- Toast ---------- */
 
 	var toastEl = $q('.toast'), toastTimer;
-	function toast(message) {
+	/* Toasts go through Ding (toasts.js sets window.ding): toast(message, type, options), where type is
+	   success / info / error and options are Ding's (description, meta, action, duration).
+	   Until Ding has loaded, the plain pill shows the message alone. */
+	function toast(message, type, options) {
+		if (window.ding) return window.ding[type || 'success'](message, options);
 		toastEl.textContent = message;
 		clearTimeout(toastTimer);
 		if (motionOK) {
@@ -398,6 +433,38 @@
 			toastEl.style.opacity = 1;
 			toastTimer = setTimeout(function () { toastEl.style.opacity = 0; }, 2400);
 		}
+	}
+
+	/* After a reading is checked off: which day it was, or the bigger news when there is some.
+	   Undo un-checks it through the same button or checkbox the reader used. */
+	function readingToast(ctx, entry, key) {
+		if (!settings.readingToasts) return;
+		var index = +key.slice(ctx.key.length + 1), day = ctx.days[index];
+		if (key.indexOf(ctx.key + '-') !== 0 || !day) return;
+		var p = progress(ctx), n = 0, i;
+		for (i = 0; i <= index; i++) if (ctx.days[i].formattedReading) n++;
+		var dd = new Date(day.date.getFullYear(), day.date.getMonth(), day.date.getDate());
+		var undo = { label: 'Undo', onClick: function () {
+			unmarkReading(key);
+			return { title: 'Day ' + n + ' unmarked', type: 'info', description: '', meta: null, action: null, duration: 2500 };
+		} };
+		var opts = { description: cardRef(day, entry).text, meta: p.done + '/' + p.total, action: undo, duration: 5000 };
+		if (p.total && p.done === p.total) {
+			toast('Plan complete', 'success', { description: 'Every reading in ' + entryName(entry), action: undo, duration: 8000 });
+		} else if (dd < today() && todayInfo(ctx).behind === 0) {
+			toast('All caught up', 'success', opts);
+		} else {
+			toast('Day ' + n + ' done', 'success', opts);
+		}
+	}
+
+	function unmarkReading(key) {
+		var btn = $$('.js-mark.is-done').filter(function (b) { return b.dataset.key === key; })[0];
+		if (btn) return btn.click();
+		var box = doc.getElementById(key);
+		if (box && box.checked) return box.click();
+		setRead(key, false);
+		updateProgress(true);
 	}
 
 	/* ---------- Home ---------- */
@@ -1338,6 +1405,7 @@
 		if (state.view === 'create') createMode = null;
 		setPlanMenu(false);
 		setLayoutMenu(false);
+		setAppMenu(false);
 		state.view = view;
 		doc.body.dataset.view = view;
 		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
@@ -1466,6 +1534,10 @@
 		doc.addEventListener('click', function (e) {
 			var t;
 			if (e.target.closest('.plan-more')) { setLayoutMenu(false); return setPlanMenu(!$q('.plan-menu').classList.contains('is-open')); }
+			if (e.target.closest('.menu-btn')) { setPlanMenu(false); setLayoutMenu(false); return setAppMenu(!$q('.app-menu').classList.contains('is-open')); }
+			if ((t = e.target.closest('[data-theme-choice]'))) { if (window.setThemeChoice) window.setThemeChoice(t.dataset.themeChoice); return; }
+			// clicks inside the menu panel (its switches) keep it open
+			if (e.target.closest('.app-menu-panel')) return;
 			if (e.target.closest('.layout-trigger')) { setPlanMenu(false); return setLayoutMenu(!$q('.layout-menu').classList.contains('is-open')); }
 			// Remove asks once more in place before it goes
 			if ((t = e.target.closest('.js-remove-plan'))) {
@@ -1492,6 +1564,7 @@
 			// any other click closes the menu; a click on one of its items still runs below
 			if ($q('.plan-menu.is-open')) setPlanMenu(false);
 			if ($q('.layout-menu.is-open')) setLayoutMenu(false);
+			if ($q('.app-menu.is-open')) setAppMenu(false);
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
@@ -1528,6 +1601,10 @@
 					ring.dataset.pct = progress(ctxFor(findPlan(card.dataset.planId))).pct;
 					animateRing(ring, before);
 				}
+				if (done) {
+					var markEntry = card ? findPlan(card.dataset.planId) : state.active;
+					readingToast(ctxFor(markEntry), markEntry, key);
+				}
 				return;
 			}
 
@@ -1538,7 +1615,7 @@
 				if (kind === 'csv') { downloadcsv(); toast('Spreadsheet saved'); }
 				if (kind === 'link') {
 					var url = location.origin + location.pathname + (state.active ? state.active.query : '');
-					if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copied'); }, function () { toast('Could not copy the link'); });
+					if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copied'); }, function () { toast('Could not copy the link', 'error', { duration: 5000 }); });
 				}
 				sheets.close(sheet);
 				return;
@@ -1572,14 +1649,21 @@
 
 			if (e.target.closest('#jump-today')) {
 				var todayEl = $q('#output .is-today');
-				if (!todayEl) { toast(todayInfo().status === 'upcoming' ? 'Your plan hasn’t started yet' : 'No reading today'); return; }
+				if (!todayEl) { toast(todayInfo().status === 'upcoming' ? 'Your plan hasn’t started yet' : 'No reading today', 'info'); return; }
 				todayEl.scrollIntoView({ behavior: motionOK ? 'smooth' : 'auto', block: 'center' });
 				if (motionOK) g.fromTo(todayEl, { scale: 1 }, { scale: 1.04, duration: 0.25, yoyo: true, repeat: 1, delay: 0.5, ease: 'power2.inOut', clearProps: 'transform' });
 			}
 		});
 
+		// the menu's switches (Sounds, Check-off messages)
+		doc.addEventListener('change', function (e) {
+			var t = e.target;
+			if (t.dataset && t.dataset.setting) setSetting(t.dataset.setting, t.checked);
+		});
+
 		$q('#output').addEventListener('change', function (e) {
 			if (!e.target.classList.contains('reading-check')) return;
+			if (e.target.checked && state.active) readingToast(ctxFor(), state.active, e.target.id);
 			updateProgress(true);
 			markCompleteWeeks(true);
 			if (LIVE_FORMATS.indexOf(currentParams().get('format')) > -1) return refreshLiveLayout(e.target.id);
@@ -1590,6 +1674,7 @@
 			if (e.key !== 'Escape') return;
 			if ($q('.plan-menu.is-open')) { setPlanMenu(false); $q('.plan-more').focus(); return; }
 			if ($q('.layout-menu.is-open')) { setLayoutMenu(false); $q('.layout-trigger').focus(); return; }
+			if ($q('.app-menu.is-open')) { setAppMenu(false); $q('.menu-btn').focus(); return; }
 			var open = $$('.sheet[aria-hidden="false"]').filter(function (s) { return s.id !== 'reading-modal'; });
 			if (open.length) closeSheet(open[open.length - 1]);
 		});
@@ -1613,6 +1698,19 @@
 		if (motionOK) g.fromTo(panel, { opacity: 0, scale: 0.94, y: -6 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
 		if (usingKeyboard) $q('.btn', panel).focus();
 	}
+	/* The ☰ menu in the app bar: appearance and settings */
+	function setAppMenu(open) {
+		var menu = $q('.app-menu'), btn = $q('.menu-btn');
+		if (!menu || menu.classList.contains('is-open') === open) return;
+		menu.classList.toggle('is-open', open);
+		btn.setAttribute('aria-expanded', String(open));
+		if (!open) return;
+		$$('[data-setting]', menu).forEach(function (input) { input.checked = !!settings[input.dataset.setting]; });
+		var panel = $q('.app-menu-panel', menu);
+		if (motionOK) g.fromTo(panel, { opacity: 0, scale: 0.94, y: -6 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
+		if (usingKeyboard) ($q('[aria-checked="true"]', panel) || $q('button', panel)).focus();
+	}
+
 	/* Layout dropdown beside the progress bar: the trigger names the current layout */
 	function setLayoutChecked(format) {
 		var current;

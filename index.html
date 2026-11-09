@@ -31,7 +31,8 @@
 		(function () {
 			var theme = null;
 			try { theme = localStorage.getItem('lamp-theme'); } catch (e) {}
-			if (!theme) theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			// anything but a saved light/dark choice ("Auto") follows the device
+			if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 			document.documentElement.setAttribute('data-theme', theme);
 		})();
 	</script>
@@ -57,6 +58,7 @@
 	<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
 	<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
 	<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
+	<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h15"/></symbol>
 	<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
 	<symbol id="i-wide" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
 	<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
@@ -80,10 +82,22 @@
 			<a class="tab" href="#plan" data-tab="plan"><svg class="icon"><use href="#i-myplan"/></svg><span>My plan</span></a>
 		</nav>
 
-		<button type="button" class="icon-btn js-theme-toggle" aria-label="Switch theme">
-			<svg class="icon icon-sun"><use href="#i-sun"/></svg>
-			<svg class="icon icon-moon"><use href="#i-moon"/></svg>
-		</button>
+		<!-- Menu: appearance and a few app settings (see setAppMenu in shell.js) -->
+		<div class="app-menu">
+			<button type="button" class="icon-btn menu-btn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="app-menu-panel"><svg class="icon"><use href="#i-menu"/></svg></button>
+			<div class="app-menu-panel" id="app-menu-panel">
+				<div class="menu-group">
+					<span class="menu-label" id="appearance-label">Appearance</span>
+					<div class="menu-seg" role="radiogroup" aria-labelledby="appearance-label">
+						<button type="button" role="radio" data-theme-choice="light"><svg class="icon"><use href="#i-sun"/></svg><span>Light</span></button>
+						<button type="button" role="radio" data-theme-choice="dark"><svg class="icon"><use href="#i-moon"/></svg><span>Dark</span></button>
+						<button type="button" role="radio" data-theme-choice="system"><span>Auto</span></button>
+					</div>
+				</div>
+				<label class="menu-row"><span>Sounds</span><input type="checkbox" class="switch" data-setting="sound"></label>
+				<label class="menu-row"><span>Check-off messages</span><input type="checkbox" class="switch" data-setting="readingToasts"></label>
+			</div>
+		</div>
 	</header>
 
 	<main>
@@ -553,6 +567,7 @@
 <script src="app.js"></script>
 <script src="gsap.min.js"></script>
 <script src="shell.js"></script>
+<script type="module" src="toasts.js"></script>
 
 <!-- Global site tag (gtag.js) - Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=UA-3734687-20"></script>

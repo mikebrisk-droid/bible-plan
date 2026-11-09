@@ -63,31 +63,37 @@ function initSettingsToggle() {
 	});
 }
 
+/* Appearance: Light, Dark or Auto (follows the device). Picked in the menu (shell.js calls
+   window.setThemeChoice); a saved light/dark lives in 'lamp-theme', Auto clears it. */
 function initThemeToggle() {
 	var storageKey = 'lamp-theme',
-		stored = null,
-		prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+		media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null,
+		choice = null;
 
-	try { stored = localStorage.getItem(storageKey); } catch (e) {}
+	try { choice = localStorage.getItem(storageKey); } catch (e) {}
+	if (choice !== 'light' && choice !== 'dark') choice = 'system';
 
-	function setTheme(theme, persist) {
-		var isDark = theme === 'dark';
+	function apply() {
+		var theme = choice === 'system' ? (media && media.matches ? 'dark' : 'light') : choice;
 		document.documentElement.setAttribute('data-theme', theme);
 		var meta = document.querySelector('meta[name="theme-color"]');
-		if (meta) meta.setAttribute('content', isDark ? '#0d0d0f' : '#f7f7f8');
-		$('.js-theme-toggle')
-			.attr('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode')
-			.attr('aria-pressed', isDark ? 'true' : 'false');
-		if (persist) {
-			try { localStorage.setItem(storageKey, theme); } catch (e) {}
-		}
+		if (meta) meta.setAttribute('content', theme === 'dark' ? '#0d0d0f' : '#f7f7f8');
+		$('[data-theme-choice]').each(function() {
+			this.setAttribute('aria-checked', String(this.getAttribute('data-theme-choice') === choice));
+		});
 	}
 
-	setTheme(stored || (prefersDark ? 'dark' : 'light'), false);
+	window.setThemeChoice = function(next) {
+		choice = next === 'light' || next === 'dark' ? next : 'system';
+		try {
+			if (choice === 'system') localStorage.removeItem(storageKey);
+			else localStorage.setItem(storageKey, choice);
+		} catch (e) {}
+		apply();
+	};
 
-	$(document).on('click', '.js-theme-toggle', function() {
-		setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark', true);
-	});
+	if (media && media.addEventListener) media.addEventListener('change', function() { if (choice === 'system') apply(); });
+	apply();
 }
 
 function initReadingModal() {

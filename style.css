@@ -197,9 +197,6 @@ button { cursor: pointer; }
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
 
-.js-theme-toggle .icon-moon { display: none; }
-[data-theme="dark"] .js-theme-toggle .icon-sun { display: none; }
-[data-theme="dark"] .js-theme-toggle .icon-moon { display: block; }
 
 .link-btn {
 	display: inline-flex;
@@ -279,8 +276,9 @@ main {
 .brand { justify-self: start; color: var(--ink); text-decoration: none; }
 .brand .logo { height: 44px; }
 
-.appbar .js-theme-toggle {
-	justify-self: end;
+/* ☰ menu: appearance and settings, in a panel like the plan's ••• menu */
+.app-menu { position: relative; justify-self: end; }
+.appbar .menu-btn {
 	width: 42px;
 	height: 42px;
 	background: var(--surface);
@@ -288,8 +286,56 @@ main {
 	color: var(--ink);
 	transition: box-shadow .2s var(--ease), scale .2s var(--ease);
 }
-.appbar .js-theme-toggle:hover { background: var(--surface); box-shadow: var(--shadow), inset 0 0 0 1px var(--line-strong); }
-.appbar .js-theme-toggle:active { scale: 0.96; }
+.appbar .menu-btn:hover, .appbar .menu-btn[aria-expanded="true"] { background: var(--surface); box-shadow: var(--shadow), inset 0 0 0 1px var(--line-strong); }
+.appbar .menu-btn:active { scale: 0.96; }
+.menu-btn .icon { stroke-width: 2.2; }
+.app-menu-panel {
+	position: absolute;
+	top: calc(100% + 10px);
+	right: 0;
+	z-index: 50;
+	display: grid;
+	gap: 2px;
+	width: 260px;
+	padding: 8px;
+	border-radius: var(--r-lg);
+	background: var(--surface);
+	box-shadow: var(--shadow-pop), inset 0 0 0 1px var(--line);
+	transform-origin: top right;
+}
+.app-menu:not(.is-open) .app-menu-panel { display: none; }
+.menu-group { display: grid; gap: 8px; padding: 6px 6px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.menu-label { color: var(--ink-2); font-size: 12.5px; font-weight: 600; }
+.menu-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--surface-2); }
+.menu-seg button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 34px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--ink-2);
+	font-size: 13.5px;
+	font-weight: 600;
+	transition: background-color .2s, color .2s, box-shadow .2s;
+}
+.menu-seg button .icon { width: 15px; height: 15px; }
+.menu-seg button:hover { color: var(--ink); }
+.menu-seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.menu-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 46px;
+	padding: 0 6px;
+	border-radius: var(--r-sm);
+	font-size: 15px;
+	cursor: pointer;
+}
 
 /* Center pill navigation with a "lens" that springs between tabs (see shell.js) */
 .tabbar {
@@ -373,7 +419,7 @@ main {
 	.tab { gap: 6px; padding: 9px 10px; font-size: 14px; }
 	.tab .icon { display: none; }
 	.brand .logo { height: 38px; }
-	.appbar .js-theme-toggle { width: 38px; height: 38px; }
+	.appbar .menu-btn { width: 38px; height: 38px; }
 }
 
 /* Phones: the nav floats at the bottom as a tab bar (icon over label). The lens still springs
@@ -2697,7 +2743,17 @@ body.has-sheet { overflow: hidden; }
 .to-top:active { scale: .94; }
 .to-top .icon { width: 20px; height: 20px; }
 
-/* Toast */
+/* Ding toasts (ding.js, mounted by toasts.js): top right, just under the app bar, in the site's font and green */
+html .tst-viewport {
+	--appbar-h: 82px;
+	--tst-pad: 24px;
+	--tst-success: var(--ok);
+	font-family: var(--font-ui);
+}
+html .tst-viewport[data-position^=top] .tst-slot { top: calc(var(--appbar-h) + env(safe-area-inset-top, 0px)); }
+@media (max-width: 759px) { html .tst-viewport { --tst-pad: 16px; --appbar-h: 74px; } }
+
+/* Fallback toast, until Ding loads */
 .toast {
 	position: fixed;
 	left: 50%;
