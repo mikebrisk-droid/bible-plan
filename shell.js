@@ -176,7 +176,7 @@
 		loadFromParams(q);
 		if (location.hash !== '#plan') location.hash = 'plan';
 		else renderPlanView();
-		toast('Plan started');
+		toast(meta.toast || 'Plan started');
 	}
 
 	window.onPlanQuery = function (query) {
@@ -364,7 +364,7 @@
 	function renderHome() {
 		var el = $q('#view-home'), html = '';
 		html += '<header class="greeting" data-anim><div><span class="eyebrow">' + fmt(new Date(), { weekday: 'long', month: 'long', day: 'numeric' }) + '</span><h1>' + greeting() + '</h1></div>' +
-			(state.active ? '<a class="btn greeting-action" href="#create" aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</header>';
+			(state.active ? '<a class="btn greeting-action" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</header>';
 
 		if (state.active) {
 			html += todayCard();
@@ -475,7 +475,7 @@
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
 			nodates: false, stats: false, dailystats: false, includeurls: false,
 			urlsite: 'biblegateway', urlversion: 'NIV',
-			name: ''
+			name: '', customStart: false, customTotal: false
 		};
 	}
 	resetBuilder();
@@ -564,16 +564,65 @@
 	}
 	function builderValid() { return B.days.length > 0 && B.total > 0 && !!parseYmd(B.start) && !bookProblem(); }
 
-	function segmented(name, options, value) {
-		return '<div class="segmented" role="radiogroup">' + options.map(function (o) {
-			return '<button type="button" role="radio" data-' + name + '="' + o[0] + '" aria-checked="' + (String(value) === String(o[0])) + '">' + o[1] + '</button>';
-		}).join('') + '</div>';
-	}
-
 	function pills(name, options, value) {
 		return '<div class="pill-row">' + options.map(function (o) {
 			return '<button type="button" class="pill" data-' + name + '="' + o[0] + '" aria-pressed="' + (String(value) === String(o[0])) + '">' + o[1] + '</button>';
 		}).join('') + '</div>';
+	}
+
+	/* Format-style choice boxes for the Time and Books steps: art on top (a date, a big number or a
+	   line drawing like LAYOUT_ART), a short label below. `cols` is the column count on phones. */
+	function choiceBox(attr, value, pressed, art, label) {
+		return '<button type="button" class="layout-choice box-choice" data-' + attr + '="' + value + '" aria-pressed="' + pressed + '">' +
+			'<span class="box-art" aria-hidden="true">' + art + '</span><span class="box-label">' + label + '</span></button>';
+	}
+	function boxGrid(boxes, cols) { return '<div class="box-grid"' + (cols ? ' style="--cols:' + cols + '"' : '') + '>' + boxes.join('') + '</div>'; }
+	function lineArt(paths) { return '<svg viewBox="0 0 48 42">' + paths + '</svg>'; }
+	function countArt(n, unit) { return '<b>' + n + '</b><small>' + unit + '</small>'; }
+
+	var ORDERS = [
+		['traditional', 'Traditional', '<path d="M6 11c5-2.5 12-2.5 18 1.5 6-4 13-4 18-1.5v22c-5-2.5-12-2.5-18 1.5-6-4-13-4-18-1.5z"/><path d="M24 12.5v22"/>'],
+		['chronological', 'Chronological', '<path d="M6 21h36"/><circle cx="13" cy="21" r="3"/><circle cx="24" cy="21" r="3"/><circle cx="35" cy="21" r="3"/><path d="M13 9v6M24 27v6M35 9v6"/>'],
+		['alternate', 'Alternate', '<path d="M6 11h13M29 17h13M6 23h13M29 29h13"/><path d="m21 12 6 4M27 18l-6 4M21 24l6 4"/>'],
+		['mcheyne', 'M’Cheyne', '<circle cx="9" cy="10" r="2"/><circle cx="9" cy="17" r="2"/><circle cx="9" cy="24" r="2"/><circle cx="9" cy="31" r="2"/><path d="M15 10h26M15 17h20M15 24h24M15 31h16"/>']
+	];
+	var LOGICS = [
+		['chapters', 'Chapters', 'The same number of chapters every day.',
+			'<rect x="6" y="10" width="10" height="22" rx="2"/><rect x="19" y="10" width="10" height="22" rx="2"/><rect x="32" y="10" width="10" height="22" rx="2"/>'],
+		['words', 'Words', 'Whole chapters, balanced so each day is about the same length.',
+			'<path d="M8 11h32M8 17h32M8 23h32M8 29h32M8 35h18"/>'],
+		['pericopes', 'Pericopes', 'Days end at natural story breaks, sometimes mid-chapter.',
+			'<path d="M8 9h32M8 14h32M8 19h20"/><path d="M8 26h32M8 31h32M8 36h24"/><circle cx="36" cy="19" r="2"/>']
+	];
+	function logicNote() { var l = LOGICS.filter(function (x) { return x[0] === B.logic; })[0]; return l ? l[2] : ''; }
+	function paintCustomBooks() {
+		var art = $q('[data-scope="custom"] .box-art');
+		if (art) art.innerHTML = customBooksArt();
+	}
+	function popBoxArt(target) {
+		var box = typeof target === 'string' ? $q(target, $q('#view-create')) : target;
+		if (motionOK && box) g.fromTo($q('.box-art', box), { scale: 0.8 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
+	}
+	function customBooksArt() { return B.books.length ? countArt(B.books.length, B.books.length === 1 ? 'book' : 'books') : icon('edit'); }
+
+	/* Time frame boxes: a calendar-style date or a big number where the Format step has its layout art */
+	function dateArt(d) { return '<small>' + fmt(d, { month: 'short' }) + '</small><b>' + d.getDate() + '</b>'; }
+	function lengthArt(n) {
+		var named = { 182: ['6', 'months'], 365: ['1', 'year'], 730: ['2', 'years'] }[n] || [String(n), n === 1 ? 'day' : 'days'];
+		return '<b>' + named[0] + '</b><small>' + named[1] + '</small>';
+	}
+	function endsOn(n) {
+		var s = parseYmd(B.start);
+		return s && n > 0 ? 'Ends ' + fmt(s.addDays(n - 1), { month: 'short', day: 'numeric' }) : '';
+	}
+	// refresh the parts of the Time frame boxes that depend on the start date or a custom value
+	function paintTimeBoxes() {
+		var view = $q('#view-create'), cs = $q('[data-custom="start"]', view), ct = $q('[data-custom="total"]', view);
+		if (!cs || !ct) return;
+		$q('.box-art', cs).innerHTML = B.customStart && parseYmd(B.start) ? dateArt(parseYmd(B.start)) : icon('calendar');
+		$$('[data-total]', view).forEach(function (b) { $q('.box-label', b).textContent = endsOn(+b.dataset.total); });
+		$q('.box-art', ct).innerHTML = B.customTotal ? lengthArt(B.total) : icon('edit');
+		$q('.box-label', ct).textContent = B.customTotal ? endsOn(B.total) : 'Custom';
 	}
 
 	function bookGroup(key, label, list, selected, attr) {
@@ -627,13 +676,19 @@
 		var h = '<h2>' + STEPS[B.step].title + '</h2>';
 
 		if (B.step === 0) {
-			var starts = [['Today', today()], ['Next Monday', nextMonday()], ['1st of next month', nextMonthFirst()], ['January 1', nextJan1()]];
+			var starts = [['Today', today()], ['Next Monday', nextMonday()], ['Next month', nextMonthFirst()], ['New Year', nextJan1()]];
+			var totals = [30, 90, 182, 365, 730];
+			// "Custom" is on when chosen, or when the value (e.g. from an edited plan) matches no preset
+			B.customStart = B.customStart || !starts.some(function (s) { return ymd(s[1]) === B.start; });
+			B.customTotal = B.customTotal || totals.indexOf(B.total) < 0;
 			h += '<div class="field"><span class="field-label">Start</span>' +
-				pills('start', starts.map(function (s) { return [ymd(s[1]), s[0]]; }), B.start) +
-				'<label class="inline-field">Start date <input class="input" type="date" id="b-start" value="' + B.start + '"></label></div>' +
+				boxGrid(starts.map(function (s) { return choiceBox('start', ymd(s[1]), !B.customStart && B.start === ymd(s[1]), dateArt(s[1]), s[0]); })
+					.concat(choiceBox('custom', 'start', B.customStart, '', 'Custom'))) +
+				'<label class="inline-field" id="b-start-field"' + (B.customStart ? '' : ' hidden') + '><input class="input" type="date" id="b-start" aria-label="Start date" value="' + B.start + '"></label></div>' +
 				'<div class="field"><span class="field-label">Days</span>' +
-				pills('total', [[30, '30 days'], [90, '90 days'], [182, '6 months'], [365, '1 year'], [730, '2 years']], B.total) +
-				'<label class="inline-field"><input class="input input-days" type="number" min="1" max="3650" id="b-total" value="' + B.total + '"> days <span class="muted" id="b-end">' + endLabel() + '</span></label></div>';
+				boxGrid(totals.map(function (n) { return choiceBox('total', n, !B.customTotal && B.total === n, lengthArt(n), ''); })
+					.concat(choiceBox('custom', 'total', B.customTotal, '', ''))) +
+				'<label class="inline-field" id="b-total-field"' + (B.customTotal ? '' : ' hidden') + '><input class="input input-days" type="number" min="1" max="3650" id="b-total" value="' + B.total + '"> days</label></div>';
 
 		} else if (B.step === 1) {
 			h += '<div class="field"><span class="field-label">Layout</span><div class="layout-grid">' + LAYOUTS.map(function (l) {
@@ -645,13 +700,12 @@
 
 		} else if (B.step === 2) {
 			h += '<div class="field"><span class="field-label">Order</span>' +
-				segmented('order', [['traditional', 'Traditional'], ['chronological', 'Chronological'], ['alternate', 'Alternate'], ['mcheyne', 'M’Cheyne']], B.order) + '</div>';
+				boxGrid(ORDERS.map(function (o) { return choiceBox('order', o[0], B.order === o[0], lineArt(o[2]), o[1]); }), 2) + '</div>';
 			if (B.order === 'traditional' || B.order === 'chronological') {
-				var choices = [['whole', 'Whole Bible', '66 books'], ['OT', 'Old Testament', '39 books'], ['NT', 'New Testament', '27 books']];
-				if (B.order === 'traditional') choices.push(['custom', 'Choose books', B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical']);
-				h += '<div class="field"><span class="field-label">Books</span><div class="choice-grid">' + choices.map(function (c) {
-					return '<button type="button" class="choice" data-scope="' + c[0] + '" aria-pressed="' + (B.scope === c[0]) + '"><strong>' + c[1] + '</strong><small' + (c[0] === 'custom' ? ' id="custom-count"' : '') + '>' + c[2] + '</small></button>';
-				}).join('') + '</div></div>';
+				var scopes = [['whole', 'Whole Bible', countArt(66, 'books')], ['OT', 'Old Testament', countArt(39, 'books')], ['NT', 'New Testament', countArt(27, 'books')]];
+				if (B.order === 'traditional') scopes.push(['custom', 'Choose books', customBooksArt()]);
+				h += '<div class="field"><span class="field-label">Books</span>' +
+					boxGrid(scopes.map(function (c) { return choiceBox('scope', c[0], B.scope === c[0], c[2], c[1]); }), scopes.length === 4 ? 2 : 3) + '</div>';
 				if (B.order === 'traditional' && B.scope === 'custom') {
 					h += '<div class="field book-picker">' +
 						bookGroup('OT', 'Old Testament', bible.OT_BOOKS, B.books, 'book') +
@@ -664,7 +718,8 @@
 					bookGroup('GOSPEL', 'Gospel Writers', bible.GOSPEL_BOOKS, B.altBooks, 'alt-book') + '</div>';
 			}
 			h += '<div class="field"><span class="field-label">Divide by</span>' +
-				segmented('logic', [['chapters', 'Number of chapters'], ['words', 'Words per chapter'], ['pericopes', 'Pericopes']], B.logic) + '</div>';
+				boxGrid(LOGICS.map(function (l) { return choiceBox('logic', l[0], B.logic === l[0], lineArt(l[3]), l[1]); }), 3) +
+				'<p class="box-note" id="logic-note">' + logicNote() + '</p></div>';
 
 		} else if (B.step === 3) {
 			h += '<div class="field"><div class="weekdays">' + DAY_NAMES.map(function (n, i) {
@@ -690,9 +745,36 @@
 		return h;
 	}
 
+	/* With a plan running, the Create tab first asks: start fresh or edit the current one.
+	   null = ask; 'new' / 'edit' / 'template' = straight to the builder. Cleared on leaving the view. */
+	var createMode = null;
+
+	function chooserHtml() {
+		return '<div class="builder create-choice"><div class="start-grid">' +
+			'<button type="button" class="start-card" data-create-mode="new"><span class="start-icon">' + icon('create') + '</span>' +
+			'<span class="start-text"><strong>Create a New Plan</strong><small>Start from scratch</small></span></button>' +
+			'<button type="button" class="start-card" data-create-mode="edit"><span class="start-icon">' + icon('edit') + '</span>' +
+			'<span class="start-text"><strong>Edit Current Plan</strong><small>' + esc(planName()) + '</small></span></button>' +
+			'</div></div>';
+	}
+
+	function chooseCreateMode(mode) {
+		if (mode === 'edit') {
+			builderFrom(currentParams());
+			if (state.active && state.active.named) B.name = state.active.name;
+		} else {
+			resetBuilder();
+		}
+		createMode = mode;
+		renderCreate();
+		if (motionOK) g.fromTo($$('[data-anim]', $q('#view-create')), { y: 18, opacity: 0 },
+			{ y: 0, opacity: 1, duration: 0.6, stagger: 0.06, ease: 'power3.out', clearProps: 'transform,opacity' });
+	}
+
 	function renderCreate() {
 		var el = $q('#view-create');
-		if (!el.firstChild) {
+		if (state.active && !createMode) { el.innerHTML = chooserHtml(); return; }
+		if (!$q('.builder:not(.create-choice)', el)) {
 			el.innerHTML = '<div class="builder">' +
 				'<ol class="stepper" data-anim>' + STEPS.map(function (s, i) {
 					return '<li><button type="button" data-goto="' + i + '"><span class="bar"><span></span></span><span class="lbl">' + s.label + '</span></button></li>';
@@ -714,7 +796,7 @@
 		if (version) version.value = B.urlversion;
 
 		$q('#step-back').style.visibility = B.step === 0 ? 'hidden' : 'visible';
-		$q('#step-next').textContent = B.step === LAST ? 'Create plan' : 'Next';
+		$q('#step-next').textContent = B.step < LAST ? 'Next' : createMode === 'edit' ? 'Save plan' : 'Create plan';
 		$$('.stepper button').forEach(function (b, i) {
 			if (i === B.step) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
 			var bar = $q('.bar span', b), w = i <= B.step ? '100%' : '0%';
@@ -748,6 +830,7 @@
 
 	function updateSummary() {
 		$q('#sum-title').textContent = planTitle();
+		paintTimeBoxes();
 		var nameInput = $q('#b-name');
 		if (nameInput) nameInput.placeholder = builderName();
 		var next = $q('#step-next'), meta = $q('#sum-meta'), end = $q('#b-end');
@@ -784,25 +867,39 @@
 			if (!t || !view.contains(t)) return;
 			var d = t.dataset;
 
+			if (d.createMode) return chooseCreateMode(d.createMode);
 			if (t.id === 'step-next') {
 				if (B.step < LAST) goStep(B.step + 1);
-				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim() }, builderDisplay());
+				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null }, builderDisplay());
 				return;
 			}
 			if (t.id === 'step-back') return goStep(B.step - 1);
 			if (d.goto) return goStep(+d.goto);
 
-			if (d.start) {
-				B.start = d.start;
-				$q('#b-start').value = B.start;
-				setPressed('[data-start]', function (p) { return p === t; });
+			if (d.start || d.total) {
+				var which = d.start ? 'start' : 'total';
+				if (d.start) B.start = d.start; else B.total = +d.total;
+				B[which === 'start' ? 'customStart' : 'customTotal'] = false;
+				$q('#b-' + which).value = B[which];
+				$q('#b-' + which + '-field').hidden = true;
+				setPressed('[data-' + which + '], [data-custom="' + which + '"]', function (p) { return p === t; });
+				if (motionOK) g.fromTo($q('.box-art', t), { scale: 0.8 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
 				return updateSummary();
 			}
-			if (d.total) {
-				B.total = +d.total;
-				$q('#b-total').value = B.total;
-				setPressed('[data-total]', function (p) { return p === t; });
-				return updateSummary();
+			if (d.custom) {
+				var field = $q('#b-' + d.custom + '-field'), input = $q('#b-' + d.custom);
+				B[d.custom === 'start' ? 'customStart' : 'customTotal'] = true;
+				setPressed('[data-' + d.custom + '], [data-custom="' + d.custom + '"]', function (p) { return p === t; });
+				paintTimeBoxes();
+				if (motionOK) g.fromTo($q('.box-art', t), { scale: 0.8 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
+				if (field.hidden) {
+					field.hidden = false;
+					if (motionOK) g.from(field, { y: -6, opacity: 0, duration: 0.35, ease: 'power2.out', clearProps: 'transform,opacity' });
+				}
+				input.focus();
+				if (d.custom === 'start') { try { input.showPicker(); } catch (err) { /* not supported */ } }
+				else input.select();
+				return;
 			}
 			if (d.format) {
 				B.format = d.format;
@@ -815,19 +912,20 @@
 				B.order = d.order;
 				if (B.order === 'chronological' && B.scope === 'custom') B.scope = 'whole';
 				if (B.order === 'mcheyne') B.logic = 'chapters';
-				return rerenderStep(B.order === 'alternate' ? '.book-picker' : null);
+				rerenderStep(B.order === 'alternate' ? '.book-picker' : null);
+				return popBoxArt('[data-order="' + B.order + '"]');
 			}
 			if (d.scope) {
 				B.scope = d.scope;
-				return rerenderStep(d.scope === 'custom' ? '.book-picker' : null);
+				rerenderStep(d.scope === 'custom' ? '.book-picker' : null);
+				return popBoxArt('[data-scope="' + B.scope + '"]');
 			}
 			if (d.book || d.altBook) {
 				var list = d.book ? B.books : B.altBooks, code = d.book || d.altBook, i = list.indexOf(code);
 				if (i > -1) list.splice(i, 1); else list.push(code);
 				t.setAttribute('aria-pressed', String(i < 0));
 				if (motionOK) g.fromTo(t, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' });
-				var count = $q('#custom-count');
-				if (count) count.textContent = B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical';
+				paintCustomBooks();
 				return updateSummary();
 			}
 			if (d.groupAll) {
@@ -837,13 +935,15 @@
 				B[key] = B[key].filter(function (u) { return group.indexOf(u) < 0; });
 				if (!allOn) B[key] = B[key].concat(group);
 				$$('.book-chip', t.closest('.book-group')).forEach(function (c) { c.setAttribute('aria-pressed', String(!allOn)); });
-				var cc = $q('#custom-count');
-				if (cc) cc.textContent = B.books.length ? B.books.length + ' selected' : 'Includes Deuterocanonical';
+				paintCustomBooks();
 				return updateSummary();
 			}
 			if (d.logic) {
 				B.logic = d.logic;
-				$$('[data-logic]', view).forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); });
+				setPressed('[data-logic]', function (p) { return p === t; });
+				$q('#logic-note').textContent = logicNote();
+				if (motionOK) g.fromTo('#logic-note', { y: 4, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out', clearProps: 'transform,opacity' });
+				popBoxArt(t);
 				return updateSummary();
 			}
 			if (d.day) {
@@ -874,13 +974,11 @@
 				var v = parseInt(t.value, 10);
 				if (v > 0) {
 					B.total = Math.min(v, 3650);
-					setPressed('[data-total]', function (p) { return +p.dataset.total === B.total; });
 					updateSummary();
 				}
 			}
 			if (t.id === 'b-start' && parseYmd(t.value)) {
 				B.start = t.value;
-				setPressed('[data-start]', function (p) { return p.dataset.start === B.start; });
 				updateSummary();
 			}
 		});
@@ -1076,6 +1174,7 @@
 	function show(view, instant) {
 		var prev = state.view ? $q('#view-' + state.view) : null, next = $q('#view-' + view);
 		if (state.view === view) { renderView(view); return; }
+		if (state.view === 'create') createMode = null;
 		state.view = view;
 		doc.body.dataset.view = view;
 		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
@@ -1207,6 +1306,12 @@
 			if ((t = e.target.closest('[data-edit-plan]'))) {
 				builderFrom(currentParams());
 				if (state.active && state.active.named) B.name = state.active.name;
+				createMode = 'edit';
+				return;
+			}
+			if (e.target.closest('[data-new-plan]')) {
+				resetBuilder();
+				createMode = 'new';
 				return;
 			}
 
@@ -1257,6 +1362,7 @@
 				var p2 = sheetPlan;
 				sheets.close($q('#plan-sheet'), function () {
 					builderFrom(p2.params);
+					createMode = 'template';
 					if (location.hash === '#create') renderCreate(); else location.hash = 'create';
 				});
 				return;
