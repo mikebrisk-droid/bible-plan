@@ -365,11 +365,12 @@
 		return info;
 	}
 
-	function readingButton(day, cls, label) {
+	function readingButton(day, cls, label, key) {
 		var match = day.formattedReadingUrls && day.formattedReadingUrls.match(/href="([^"]+)"/);
-		var refs = day.chapters.map(function (c) { return c.usfm + '.' + c.chapter; }).join(',');
+		var refs = getYouVersionRefs(day);
 		return '<button type="button" class="' + cls + ' reading-open" data-reading-url="' + esc(match ? match[1] : '') +
-			'" data-reading-title="' + esc(day.formattedReading) + '" data-reading-refs="' + esc(refs) + '">' + label + '</button>';
+			'" data-reading-title="' + esc(day.formattedReading) + '" data-reading-refs="' + esc(refs) + '"' +
+			(key ? ' data-reading-key="' + esc(key) + '"' : '') + '>' + label + '</button>';
 	}
 
 	/* ---------- Sheets ---------- */
@@ -522,7 +523,7 @@
 			chip = '<span class="chip">Day ' + info.dayNumber + ' of ' + info.totalReadings + '</span>';
 			ref = cardRef(day, entry);
 			meta = icon('clock') + '<span>' + minutesOf(day) + ' min read</span>';
-			actions = readingButton(day, 'btn btn-primary btn-lg', icon('book') + '<span>Read</span>') +
+			actions = readingButton(day, 'btn btn-primary btn-lg', icon('book') + '<span>Read</span>', key) +
 				'<button type="button" class="btn btn-ghost btn-lg js-mark' + (done ? ' is-done' : '') + '" data-key="' + esc(key) + '">' +
 				(done ? icon('check') + '<span>Done</span>' : '<span>Mark as read</span>') + '</button>';
 		} else if (info.status === 'rest' || info.status === 'upcoming') {

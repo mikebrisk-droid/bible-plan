@@ -37,7 +37,7 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 		html.push('<div class="entry ' + (isSameDay(today, dayInfo.date) ? ' is-today': '') + ' section-' + (bookInfo != null ? bible.SECTIONS[bookInfo.section] : '') + '">');
 		//html.push('<span>' + formatChapterRange(dayInfo.chapters) + '</span>');		
 		if (dayInfo.formattedReading != '') {
-			var readingButton = createReadingButton(dayInfo);
+			var readingButton = createReadingButton(dayInfo, dayKey);
 
 			html.push(
 			`<div class="verses"> 
@@ -105,7 +105,7 @@ function buildweeks(lang, data, startDate, duration, bookList, dayList, showStat
 		html.push('<div class="date">' + (noDates ? '' : dayInfo.date.monthAbbr(lang) + ' ' + (dayInfo.date.getDate())) + '</div>');		
 		
 		if (dayInfo.formattedReading != '') {
-			var readingButton = createReadingButton(dayInfo);
+			var readingButton = createReadingButton(dayInfo, dayKey);
 			html.push(
 				`<div class="verses"> 
 					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
@@ -150,10 +150,11 @@ function formatReadingMeta(dayInfo) {
 	return meta.join(' · ');
 }
 
-function createReadingButton(dayInfo) {
+// key: the day's read-state key ("<plan>-<index>"), so the reading sheet can check it off too
+function createReadingButton(dayInfo, key) {
 	var url = getReadingUrl(dayInfo);
 
-	return `<button type="button" class="reading-open" data-reading-url="${escapeAttr(url)}" data-reading-title="${escapeAttr(dayInfo.formattedReading)}" data-reading-refs="${escapeAttr(getYouVersionRefs(dayInfo))}">${escapeHtml(dayInfo.formattedReading)}</button>`;
+	return `<button type="button" class="reading-open" data-reading-url="${escapeAttr(url)}" data-reading-title="${escapeAttr(dayInfo.formattedReading)}" data-reading-refs="${escapeAttr(getYouVersionRefs(dayInfo))}"${key ? ` data-reading-key="${escapeAttr(key)}"` : ''}>${escapeHtml(dayInfo.formattedReading)}</button>`;
 }
 
 function getReadingUrl(dayInfo) {
@@ -175,14 +176,21 @@ function escapeAttr(value) {
 	return escapeHtml(value).replace(/`/g, '&#096;');
 }
 
+// One YouVersion passage id per chapter: "HEB.11" for a whole chapter, "HEB.13.20-25" for part of one.
+// (The API takes verse ranges only within a single chapter, so "Heb 11:1–12:3" is "HEB.11,HEB.12.1-3".)
 function getYouVersionRefs(dayInfo) {
-	var references = [];
+	return dayInfo.chapters.map(function(chapter) {
+		var book = bible.BIBLE_DATA[chapter.usfm],
+			lastVerse = book && book.chapters[chapter.chapter - 1],
+			start = chapter.startVerse || 1,
+			end = chapter.endVerse || lastVerse,
+			ref = chapter.usfm + '.' + chapter.chapter;
 
-	dayInfo.chapters.forEach(function(chapter) {
-		references.push(chapter.usfm + '.' + chapter.chapter);
-	});
-
-	return references.join(',');
+		if (start === 1 && end === lastVerse) {
+			return ref;
+		}
+		return ref + '.' + start + (end && end !== start ? '-' + end : '');
+	}).join(',');
 }
 
 function buildics(lang, data, startDate, duration, bookList, dayList, showStats, showDailyStats, noDates, includeUrls) {
@@ -311,7 +319,7 @@ function buildcalendar(lang, data, startDate, duration, bookList, dayList, showS
 				(dayInfo.formattedReading != '' ?
 					`<span class="verses">
 						<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
-						${createReadingButton(dayInfo)}
+						${createReadingButton(dayInfo, dayKey)}
 					</span>` +
 					(showDailyStats ?
 						'<span class="stats">verses: ' + dayInfo.versesForToday + '<br>' +
@@ -410,7 +418,7 @@ function buildcalendarContinuous(lang, data, startDate, duration, bookList, dayL
 			(dayInfo.formattedReading != '' ? 
 				`<span class="verses"> 
 					<input type="checkbox" class="reading-check" id="${dayKey}" ${getLocalStorage(dayKey, false) === 'true' ? " checked" : ""} />
-					${createReadingButton(dayInfo)}
+					${createReadingButton(dayInfo, dayKey)}
 				</span>` +
 				(showDailyStats ?
 					'<span class="stats">' +

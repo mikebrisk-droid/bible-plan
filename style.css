@@ -2558,6 +2558,9 @@ html.ps-locked, html.ps-locked body { overflow: hidden; }
 	border-bottom: 1px solid var(--line);
 }
 .reading-head h2 { flex: 1; min-width: 0; font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reading-head .reading-check { width: 26px; height: 26px; margin-right: 4px; }
+.reading-head .reading-check::after { -webkit-mask-size: 18px; mask-size: 18px; }
+.reading-head .reading-check[hidden] { display: none; }
 
 /* Reader text settings: size steps and a wide layout */
 .reader-tools {

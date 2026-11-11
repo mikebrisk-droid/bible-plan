@@ -148,7 +148,7 @@
 				'<ol>' + entry.items.map(function (reading) {
 					var isNext = c.next && c.next.index === reading.index;
 					return '<li class="sec-item' + (reading.done ? ' is-done' : '') + (isNext ? ' is-next' : '') + '">' +
-						checkbox(reading.index) + createReadingButton(reading.day) +
+						checkbox(reading.index) + createReadingButton(reading.day, dayKey(reading.index)) +
 						(isNext ? '<span class="next-tag">Up next</span>' : '') + '</li>';
 				}).join('') + '</ol></section>';
 		}).join('');
@@ -205,7 +205,7 @@
 			var next = '';
 			if (book.next) {
 				var r = book.next;
-				next = '<div class="board-next">' + (rendered[r.index] ? proxyCheckbox(r.index) : checkbox(r.index)) + createReadingButton(r.day) +
+				next = '<div class="board-next">' + (rendered[r.index] ? proxyCheckbox(r.index) : checkbox(r.index)) + createReadingButton(r.day, dayKey(r.index)) +
 					'<small>' + short(r.date, lang) + '</small></div>';
 				rendered[r.index] = true;
 			}
@@ -247,7 +247,7 @@
 				'<th scope="row">Week ' + (n + 1) + '<small>' + short(week.start, lang) + ' – ' + short(end, lang) + '</small></th>' +
 				'<td><ul class="wr-items">' + week.items.map(function (r) {
 					return '<li class="' + (r.done ? 'is-done' : '') + (sameDay(r.date, c.today) ? ' is-today' : '') + '">' + checkbox(r.index) +
-						'<span class="wr-day">' + weekday(r.date, lang) + '</span>' + createReadingButton(r.day) + '</li>';
+						'<span class="wr-day">' + weekday(r.date, lang) + '</span>' + createReadingButton(r.day, dayKey(r.index)) + '</li>';
 				}).join('') + '</ul></td>' +
 				'<td class="wr-done num">' + done + '/' + week.items.length + '</td>' +
 				'</tr>';

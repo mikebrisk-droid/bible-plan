@@ -100,7 +100,9 @@ function initReadingModal() {
 	var modal = $('#reading-modal'),
 		content = $('#reading-modal-content'),
 		title = $('#reading-modal-title'),
-		link = $('#reading-modal-link');
+		link = $('#reading-modal-link'),
+		check = $('#reading-modal-check'),
+		readingKey = null;
 
 	if (!modal.length) {
 		return;
@@ -136,8 +138,8 @@ function initReadingModal() {
 			var holder = document.createElement('template');
 			holder.innerHTML = sanitizePassageHtml(contentHtml);
 
-			// a whole-chapter ref ("2KI.22") labels the chapter's first verse "22:1"
-			var chapter = (String(passage.reference || '').match(/^[^.]+\.(\d+)$/) || [])[1],
+			// a ref that starts a chapter ("2KI.22" or "2KI.22.1-20") labels its first verse "22:1"
+			var chapter = (String(passage.reference || '').match(/^[^.]+\.(\d+)(?:\.1(?:-\d+)?)?$/) || [])[1],
 				first = holder.content.querySelector('.yv-vlbl');
 			if (chapter && first && first.textContent.trim() === '1') {
 				first.setAttribute('data-chapter', chapter);
@@ -203,6 +205,8 @@ function initReadingModal() {
 
 		title.text(readingTitle);
 		link.attr('href', url);
+		readingKey = button.attr('data-reading-key') || null;
+		check.prop('hidden', !readingKey).prop('checked', !!readingKey && getLocalStorage(readingKey, false) === 'true');
 		if (window.lampSheet) {
 			window.lampSheet.open(modal[0]);
 		} else {
@@ -214,6 +218,23 @@ function initReadingModal() {
 	});
 
 	modal.on('click', '[data-reading-close]', closeModal);
+
+	// Check off the day from the sheet through the control on the page (home card's "Mark as read",
+	// else the day's own checkbox) so progress, toasts and the plan view all update the usual way
+	check.on('change', function() {
+		var done = this.checked,
+			mark = $('.js-mark').filter(function() { return this.getAttribute('data-key') === readingKey; })[0],
+			box = readingKey && document.getElementById(readingKey);
+
+		if (!readingKey) return;
+		if (mark) {
+			if (mark.classList.contains('is-done') !== done) mark.click();
+		} else if (box && box.type === 'checkbox') {
+			if (box.checked !== done) box.click();
+		} else {
+			setLocalStorage(readingKey, done ? 'true' : 'false');
+		}
+	});
 
 	$(document).on('keydown', function(event) {
 		if (event.key === 'Escape' && modal.attr('aria-hidden') === 'false') {
