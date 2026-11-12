@@ -78,7 +78,7 @@
 		{ id: 'chrono', title: 'Chronological Bible', blurb: 'The whole story, in the order it happened.', art: 'timeline', tags: 'whole',
 			params: { total: 365, order: 'chronological', books: 'OT,NT', logic: 'chapters' } },
 		// locked: read as published, so no Customize or Edit (52 weeks of five readings, from bible.plans.days)
-		{ id: 'fiveday', title: 'Five Day Bible Reading', blurb: 'The whole Bible in a year, five days a week.', art: 'fiveday.svg', tags: 'whole', locked: true,
+		{ id: 'fiveday', title: 'Five Day Bible Reading', blurb: 'The whole Bible in a year, five days a week.', art: 'fiveday', tags: 'whole', locked: true,
 			params: { total: 364, order: 'list', books: 'fiveday', logic: 'chapters', daysofweek: '2,3,4,5,6' } },
 		{ id: 'psalmsezekiel', title: 'Psalms–Ezekiel Plan', blurb: 'Two readings a day: the Old Testament, with Psalms, Ezekiel and the New Testament beside it.', art: 'psalmsezekiel', tags: 'whole', locked: true,
 			params: { total: 365, order: 'list', books: 'psalmsezekiel', logic: 'chapters' } },
@@ -147,7 +147,7 @@
 
 	var FILTERS = [['all', 'All'], ['whole', 'Whole Bible'], ['ot', 'Old Testament'], ['nt', 'New Testament'], ['short', '3 months or less']];
 
-	/* Plan covers: one .webp per art key, or a file named with its extension ('fiveday.svg').
+	/* Plan covers: one .webp per art key, or a file named with its extension ('name.svg', 'name.jpg').
 	   Sets: assets/plans/ (glow), assets/plans-paper/ (paper cut) */
 	var COVER_SET = 'assets/plans-paper/';
 	function coverUrl(art) { art = art || 'sun'; return COVER_SET + art + (art.indexOf('.') > -1 ? '' : '.webp'); }
