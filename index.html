@@ -61,6 +61,9 @@
 	<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h15"/></symbol>
 	<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
 	<symbol id="i-wide" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+	<symbol id="i-listen" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3.5" y="14" width="4.5" height="6.5" rx="1.8"/><rect x="16" y="14" width="4.5" height="6.5" rx="1.8"/></symbol>
+	<symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+	<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" stroke-linejoin="round"/></symbol>
 	<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
 	<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
 	<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -300,6 +303,8 @@
 		<header class="reading-head">
 			<input type="checkbox" class="reading-check" id="reading-modal-check" aria-label="Mark as read" hidden />
 			<h2 id="reading-modal-title">Reading</h2>
+			<!-- Read aloud with Kokoro in the browser (voice.js): headphones to start, pause while playing, play to resume -->
+			<button type="button" class="icon-btn reading-voice" id="reading-modal-voice" aria-label="Listen" aria-pressed="false" disabled><svg class="icon v-listen"><use href="#i-listen"/></svg><svg class="icon v-pause"><use href="#i-pause"/></svg><svg class="icon v-play"><use href="#i-play"/></svg></button>
 			<div class="reader-tools" role="group" aria-label="Text settings">
 				<button type="button" class="icon-btn reader-size" data-reader="smaller" aria-label="Smaller text"><span class="glyph-sm" aria-hidden="true">A</span></button>
 				<button type="button" class="icon-btn reader-size" data-reader="larger" aria-label="Larger text"><span class="glyph-lg" aria-hidden="true">A</span></button>
@@ -640,6 +645,7 @@
 <script src="stickers.js"></script>
 <script src="recommend.js"></script>
 <script src="shell.js"></script>
+<script src="voice.js"></script>
 <script type="module" src="toasts.js"></script>
 
 <!-- Global site tag (gtag.js) - Google Analytics -->

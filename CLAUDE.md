@@ -71,6 +71,10 @@ A reading streak counts days with at least one reading marked; weekdays that non
 
 `app.js` (`initReadingModal`) fetches `/api/youversion/passage?ref=...&version=...`. Two copies of the proxy exist and must be kept in sync: `api/youversion/passage.js` (Vercel function) and the handler in `server.mjs` (local). Both read `YVP_APP_KEY` or `VITE_YOUVERSION_APP_KEY`.
 
+### Read aloud
+
+The reading sheet's headphones button (`#reading-modal-voice`) speaks the open passage with **Kokoro-82M** (Apache-2.0), run entirely in the reader's browser; there is no server. `voice-worker.js` (a module worker) loads `kokoro-js@1.2.1`'s `dist/kokoro.web.js` from jsDelivr and the model from Hugging Face (`onnx-community/Kokoro-82M-v1.0-ONNX`): on WebGPU the fp32 model (~326 MB, ~14x real time on an M4 Max), else the q8 model on single-threaded WebAssembly (~92 MB, a little slower than real time, so slower devices may pause between sentences). The browser caches both after the first download. `voice.js` takes the text from the rendered passage (no verse numbers, editors' headings or notes; "LORD" said as "Lord"), prefixes the spoken reference ("Matthew, chapter 1, verses 1 to 17"), sends it in whole-sentence groups of up to 260 characters about 20 seconds ahead of playback, and plays them through Web Audio, so pause and resume are instant. Playback stops when the sheet closes or a new passage loads. After a device has listened once (`localStorage['rtb-voice']`), opening any reading starts the model in the background so Listen speaks right away. The voice is the `VOICE` constant in `voice.js` (`am_michael`; Kokoro's grades are in its VOICES.md).
+
 ### Vendored files
 
 `jquery.min.js`, `gsap.min.js` and `ding.js` (spring toasts, used via `toasts.js` as the ES module that sets `window.ding`) are vendored; don't edit them. The engine source keeps John Dyer's license and author notes, which must stay.

@@ -2753,6 +2753,41 @@ html.ps-locked, html.ps-locked body { overflow: hidden; }
 .glyph-sm { font-size: 13px; }
 .glyph-lg { font-size: 19px; }
 
+/* Read aloud (voice.js): headphones to start, pause while playing, play when paused; a ring fills
+   while the voice downloads the first time */
+.reading-voice {
+	position: relative;
+	width: 40px;
+	height: 40px;
+	flex: none;
+	color: var(--ink);
+	background: var(--surface-2);
+	transition: background .2s, color .2s;
+}
+.reading-voice:hover { background: var(--line); }
+.reading-voice[disabled] { opacity: .3; pointer-events: none; }
+.reading-voice .icon { width: 20px; height: 20px; }
+.reading-voice .v-pause, .reading-voice .v-play { display: none; }
+.reading-voice[data-state="playing"] .v-listen, .reading-voice[data-state="paused"] .v-listen { display: none; }
+.reading-voice[data-state="playing"] .v-pause { display: block; stroke-width: 2.6; }
+.reading-voice[data-state="paused"] .v-play { display: block; fill: currentColor; }
+.reading-voice[data-state="playing"], .reading-voice[data-state="paused"] { background: var(--primary); color: var(--primary-ink); }
+.reading-voice::before {
+	content: '';
+	position: absolute;
+	inset: -3px;
+	border-radius: 50%;
+	background: conic-gradient(var(--primary) var(--voice-progress, 0%), var(--line) 0);
+	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+	mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+	opacity: 0;
+	transition: opacity .2s;
+}
+.reading-voice[data-state="loading"]::before { opacity: 1; }
+.reading-voice[data-state="loading"] .v-listen { animation: voice-wait 1.2s ease-in-out infinite; }
+@keyframes voice-wait { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .reading-voice[data-state="loading"] .v-listen { animation: none; } }
+
 .reading-modal-panel { transition: max-width .4s var(--ease); }
 .reading-modal-panel.is-wide { max-width: min(1120px, 94vw); }
 .reading-modal-panel.is-wide .reading-passage { max-width: 54em; }
