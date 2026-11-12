@@ -220,6 +220,8 @@ button { cursor: pointer; }
 	transition: color .2s var(--ease);
 }
 .link-btn:hover { color: var(--ink); }
+/* a section's "See all" stays on one line; a long heading wraps instead */
+.section-head .link-btn { flex: none; white-space: nowrap; }
 .link-btn .icon { width: 16px; height: 16px; transition: transform .25s var(--ease); }
 .link-btn:hover .icon { transform: translateX(3px); }
 
@@ -828,6 +830,50 @@ main {
 	line-height: 1.15;
 }
 .plan-card-body .meta { color: var(--ink-2); font-size: 13.5px; }
+/* why Home recommends it ("Starts Dec 1 · Day 25 is Christmas") */
+.plan-reason { margin-top: 4px; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.3; }
+.plan-reason::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 2px; }
+
+/* Home: Challenges & milestones, a sticker and how close it is; four across on wide screens, else a scrolling row */
+.goal-shelf {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(260px, 1fr);
+	gap: 12px;
+	margin: 0 calc(var(--gutter) * -1);
+	padding: 4px var(--gutter) 18px;
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scroll-padding-inline: var(--gutter);
+	scrollbar-width: none;
+}
+.goal-shelf::-webkit-scrollbar { display: none; }
+.goal-shelf > * { scroll-snap-align: start; }
+@media (min-width: 1024px) {
+	.goal-shelf { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 4px 0 18px; overflow: visible; }
+}
+.goal-card {
+	display: grid;
+	grid-template-columns: 72px minmax(0, 1fr);
+	align-items: center;
+	gap: 14px;
+	padding: 14px 16px 14px 12px;
+	border: 0;
+	border-radius: var(--r-lg);
+	background: var(--surface);
+	box-shadow: var(--shadow);
+	color: var(--ink);
+	text-align: left;
+	transition: translate .28s var(--ease), box-shadow .28s var(--ease);
+}
+.goal-card:hover { translate: 0 -2px; box-shadow: var(--shadow-lg); }
+.goal-card:hover .sticker-wrap { --gs: 70deg; transform: rotate(-3deg) scale(1.05); }
+.goal-art { display: grid; place-items: center; width: 72px; aspect-ratio: 1; }
+.goal-body { display: grid; gap: 2px; min-width: 0; }
+.goal-body strong { font-size: 15px; font-weight: 680; letter-spacing: -0.01em; }
+.goal-line { font-size: 14px; font-weight: 600; }
+.goal-body small { color: var(--ink-3); font-size: 12.5px; }
+.goal-body .meter { height: 4px; margin-top: 6px; }
 .plan-card .badge {
 	align-self: flex-start;
 	margin-top: 6px;

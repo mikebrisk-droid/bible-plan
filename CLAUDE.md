@@ -55,6 +55,12 @@ Three layers, loaded between `gsap.min.js` and `shell.js`:
 
 **`transfer.js`** ("Move to another device", in the ☰ menu and the Save sheet; no DOM, Node-testable) packs `rtb-plans`, every checked progress key and `rtb-activity` into one payload. It travels as a link (`#import=z…`, deflate-raw plus base64url, so the data never reaches the server) or as a `.json` backup. Importing always merges and never deletes: a plan already present (same `keyOf`) stays one plan, checkmarks are combined, and `streaks.mergeActivity` keeps the earliest date for everything. `shell.js` removes `#import=` from the address bar at boot (or on hashchange), asks before merging, then reloads so the app starts again from what's stored. Device preferences (theme, text size, sounds) stay on each device.
 
+**Home rows below the plan cards** (all in `shell.js`):
+- **Recommended for you:** rules in **`recommend.js`** (no DOM, Node-testable). It takes the catalog, followed and finished plans, and `planStart`, and returns up to five plans, each with a reason. Signals, roughly in this order: calendar plans in their run-up, the `NEXT` map after a finished or mostly-read plan, year-long plans around New Year, balancing a one-testament diet, then first plans for a new reader.
+- **Challenges & milestones** (`goalItems`): active or soon challenges, at most two levels earned in the last three days, then the milestones closest to their next level. Reading counts more than visits, starts or shares.
+
+Calendar plans set `startOn` in `PLANS` (`'12-01'`, or `'easter'` to end on Easter Sunday), and `planStart` gives the date for Start, Customize and the plan sheet.
+
 A reading streak counts days with at least one reading marked; weekdays that none of the followed plans read on are days off and don't break it. Readings checked before this existed are counted for totals but carry no date.
 
 ### Passage reader

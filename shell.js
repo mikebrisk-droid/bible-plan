@@ -102,9 +102,10 @@
 		{ id: 'endtimes', title: 'The End Times', blurb: 'Daniel to Revelation on the last days and the world to come.', art: 'flame', tags: 'nt',
 			params: { total: 40, order: 'list', books: 'endtimes', logic: 'chapters' } },
 		{ id: 'easter', title: 'The Road to Easter', blurb: 'Forty days to the cross and the empty tomb.', art: 'tomb', tags: 'nt',
+			startOn: 'easter', startNote: 'so Day 40 lands on Easter Sunday', season: 'Day 40 is Easter Sunday',
 			params: { total: 40, order: 'list', books: 'easter', logic: 'chapters' } },
 		{ id: 'christmas', title: 'The Road to Christmas', blurb: 'Twenty-five days from the first promise to the manger.', art: 'branch', tags: 'nt',
-			startOn: '12-01', startNote: 'so Day 25 lands on Christmas Day',
+			startOn: '12-01', startNote: 'so Day 25 lands on Christmas Day', season: 'Day 25 is Christmas',
 			params: { total: 25, order: 'list', books: 'christmas', logic: 'chapters' } }
 	];
 	/* order 'list' plans read a fixed chapter list (bible.plans.lists) or a day list (bible.plans.days);
@@ -113,13 +114,19 @@
 	PLANS.forEach(function (p) { if (p.params.total <= 90) p.tags += ' short'; });
 	function planById(id) { return PLANS.filter(function (p) { return p.id === id; })[0]; }
 
-	/* When a ready-made plan begins. Most start today; one tied to the calendar (startOn 'MM-DD') starts on
-	   that date: this year's while its run hasn't ended (joining late means catching up), else next year's. */
+	/* When a ready-made plan begins. Most start today; one tied to the calendar starts on its date: startOn
+	   'MM-DD', or 'easter' (timed to end on Easter Sunday). This year's while its run hasn't ended (joining
+	   late means catching up), else next year's. */
+	function calendarStart(p, year) {
+		if (p.startOn === 'easter') return window.rtbStreaks.easter(year).addDays(-(p.params.total - 1));
+		var md = p.startOn.split('-');
+		return new Date(year, md[0] - 1, +md[1]);
+	}
 	function planStart(p) {
 		var t = today();
 		if (!p || !p.startOn) return t;
-		var md = p.startOn.split('-'), start = new Date(t.getFullYear(), md[0] - 1, +md[1]);
-		if (t > start.addDays(p.params.total - 1)) start = new Date(t.getFullYear() + 1, md[0] - 1, +md[1]);
+		var start = calendarStart(p, t.getFullYear());
+		if (t > start.addDays(p.params.total - 1)) start = calendarStart(p, t.getFullYear() + 1);
 		return start;
 	}
 
@@ -504,6 +511,7 @@
 		var fresh = streaks.sync(streakPlans());
 		paintStreakChip(true);
 		if (state.view === 'badges') renderBadges();
+		if (state.view === 'home') paintGoals();
 		if (fresh.length) setTimeout(function () { celebrate(fresh); }, wait || 0);
 	}
 
@@ -934,13 +942,80 @@
 
 	function entryForTemplate(id) { return mine.list.filter(function (e) { return e.planId === id; })[0] || null; }
 
-	function planCard(p) {
+	// reason: why Home recommends it ("Starts Dec 1 · Day 25 is Christmas"), shown under its length
+	function planCard(p, reason) {
 		var entry = entryForTemplate(p.id), badge = !entry ? '' : entry === state.active ? 'Current' : 'Started';
 		return '<button type="button" class="plan-card" data-plan="' + p.id + '" data-tags="' + p.tags + '">' +
 			'<span class="cover">' + cover(p.art) + '</span>' +
 			'<span class="plan-card-body"><strong>' + esc(p.title) + '</strong>' +
 			'<span class="meta" data-meta="' + p.id + '">' + durationLabel(p.params.total) + '</span>' +
+			(typeof reason === 'string' ? '<span class="plan-reason">' + esc(reason) + '</span>' : '') +
 			(badge ? '<span class="badge">' + badge + '</span>' : '') + '</span></button>';
+	}
+
+	/* ---------- Home: Recommended for you (rules in recommend.js) ---------- */
+
+	function recommendedPlans() {
+		var following = [], finished = [];
+		mine.list.forEach(function (e) {
+			var p = progress(ctxFor(e)), template = planById(e.planId) ? e.planId : null;
+			if (p.total && p.done >= p.total) { if (template) finished.push(template); }
+			else following.push({ planId: template, pct: p.pct });
+		});
+		// plans finished before, even ones since removed (the streak log keeps them)
+		streaks.catalog().plans.forEach(function (b) { if (b.earned && b.id !== 'custom' && finished.indexOf(b.id) < 0) finished.push(b.id); });
+		return window.rtbRecommend.recommend({
+			today: today(), plans: PLANS, following: following, finished: finished,
+			startOf: planStart, label: function (d) { return fmt(d); }, limit: 5
+		});
+	}
+
+	/* ---------- Home: Challenges & milestones ----------
+	   Challenges under way or coming up, the reading streak, and the milestones closest to their next level */
+
+	var GOALS_SHOWN = 4;
+	// reading itself comes first when two are about as close
+	var GOAL_WEIGHT = { streak: 10, readings: 6, finished: 4 };
+	function goalItems() {
+		var c = streaks.catalog(), s = streaks.stats(), t = today(), items = [];
+		function soon(d) { return d ? Math.round((t - parseYmd(d)) / 864e5) <= 3 : false; }
+		c.challenges.forEach(function (b) {
+			var n = b.now, until = Math.round((n.start - t) / 864e5);
+			if (n.status === 'active') items.push({ b: b, score: 100, line: n.count + ' of ' + n.goal + ' days', sub: plural(n.left, 'day', 'days') + ' left', pct: pctOf(n.count, n.goal) });
+			else if (n.status === 'earned' && t <= n.end) items.push({ b: b, score: 95, line: earnedOn(n.earnedOn), sub: n.count + ' of ' + n.total + ' days read', pct: 100 });
+			else if (n.status === 'upcoming' && until <= 45) items.push({ b: b, score: 90 - until, line: 'Starts ' + fmt(n.start), sub: 'Read on ' + n.goal + ' days', pct: null });
+		});
+		c.milestones.forEach(function (b) {
+			if (!b.next) return;
+			var last = b.tiers.filter(function (x) { return x.on; }).pop(), fresh = !!(last && soon(last.on));
+			// streaks count the current run toward the next level; the rest count totals
+			var inRow = b.id === 'streak' || b.id === 'visits', now = b.id === 'streak' ? s.reading.current : b.id === 'visits' ? s.visit.current : b.value;
+			var line = fresh ? 'New · ' + (inRow ? last.n + ' days in a row' : plural(last.n, b.unit[0], b.unit[1]))
+				: inRow ? now + ' of ' + b.next + ' days in a row' : (b.next - now) + ' to go';
+			items.push({ b: b, fresh: fresh, score: (fresh ? 96 : 30) + pctOf(now, b.next) * 0.6 + (GOAL_WEIGHT[b.id] || 0), line: line,
+				sub: 'Next: ' + plural(b.next, b.unit[0], b.unit[1]), pct: pctOf(now, b.next), tier: fresh ? last.n : b.next });
+		});
+		// at most two just-earned levels, so the row still shows what's ahead
+		function byScore(a, b) { return b.score - a.score; }
+		var fresh = items.filter(function (i) { return i.fresh; }).sort(byScore).slice(0, 2);
+		return fresh.concat(items.filter(function (i) { return !i.fresh; }).sort(byScore)).slice(0, GOALS_SHOWN);
+	}
+
+	function goalCard(it) {
+		var b = it.b;
+		return '<button type="button" class="goal-card" data-badge="' + b.key + '" data-anim>' +
+			'<span class="goal-art" aria-hidden="true">' + stickerHtml(b, { size: 'sm', locked: false, tier: it.tier }) + '</span>' +
+			'<span class="goal-body"><strong>' + esc(b.title) + '</strong><span class="goal-line">' + esc(it.line) + '</span>' +
+			'<small>' + esc(it.sub) + '</small>' +
+			(it.pct != null ? '<span class="meter" aria-hidden="true"><span style="width:' + it.pct + '%"></span></span>' : '') + '</span></button>';
+	}
+
+	function goalsInner() { return goalItems().map(goalCard).join(''); }
+
+	// after a check-off on Home, without re-rendering the page
+	function paintGoals() {
+		var shelf = $q('#view-home .goal-shelf');
+		if (shelf) shelf.innerHTML = goalsInner();
 	}
 
 	function renderHome() {
@@ -972,8 +1047,11 @@
 				'</div></section>';
 		}
 
-		html += '<section class="section"><div class="section-head" data-anim><h2>Popular plans</h2><a class="link-btn" href="#plans">See all ' + icon('arrow') + '</a></div>' +
-			'<div class="shelf">' + PLANS.slice(0, 5).map(planCard).join('') + '</div></section>';
+		html += '<section class="section"><div class="section-head" data-anim><h2>Recommended for you</h2><a class="link-btn" href="#plans">All plans ' + icon('arrow') + '</a></div>' +
+			'<div class="shelf">' + recommendedPlans().map(function (r) { return planCard(planById(r.id), r.reason); }).join('') + '</div></section>';
+
+		html += '<section class="section"><div class="section-head" data-anim><h2>Challenges &amp; milestones</h2><a class="link-btn" href="#badges">All badges ' + icon('arrow') + '</a></div>' +
+			'<div class="goal-shelf">' + goalsInner() + '</div></section>';
 
 		el.innerHTML = html;
 		paintStreakChip(false);
