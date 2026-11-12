@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560" width="560" height="560">
-<!-- The Five Day Bible Reading Program cover: its open-book "5" logo (from the 2026 schedule PDF) in paper on its mint -->
+<!-- The Five Day Bible Reading Program cover: its open-book "5" logo (from the 2026 schedule PDF) in paper on its mint, with paper grain -->
 <defs>
 <radialGradient id="bg" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#8FD5C0"/><stop offset="1" stop-color="#5FAF97"/></radialGradient>
-<filter id="lift" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1E4D40" flood-opacity=".35"/></filter>
-<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#1E4D40" flood-opacity=".28"/></filter>
+<filter id="lift" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#1E4D40" flood-opacity=".35"/></filter>
+<!-- paper: fine grain and a soft mottling, laid over everything like the other covers -->
+<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" seed="7" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+<filter id="mottle" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".009" numOctaves="3" seed="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
 </defs>
 <rect width="560" height="560" fill="url(#bg)"/>
-<circle cx="280" cy="286" r="208" fill="#79C9B1" filter="url(#soft)"/>
-<circle cx="280" cy="286" r="208" fill="none" stroke="#B5E6D7" stroke-opacity=".6" stroke-width="1.5"/>
 <g filter="url(#lift)" fill="#FBF5E9" transform="translate(130.00 178.28) scale(4.7992) translate(-442.02 -52.03)">
 <path d="M450.78 57.59 L450.78 83.41 C450.78 85.38 451.84 87.61 453.56 88.62 L466.06 96.21 L449.46 90.34 C448.50 89.99 447.84 88.37 447.84 87.15 L447.84 57.49 C447.84 56.28 448.95 55.97 449.66 56.18 C450.37 56.38 450.78 56.99 450.78 57.59" fill-rule="evenodd"/>
 <path d="M445.46 62.81 L445.46 87.15 C445.46 89.13 446.37 91.76 448.24 92.37 L461.35 96.92 L447.38 94.44 C444.80 93.99 442.07 93.53 442.07 90.14 L442.07 62.20 C442.02 58.20 445.46 57.39 445.46 62.81" fill-rule="evenodd"/>
@@ -16,4 +16,6 @@
 <path d="M490.25 59.87 L477.40 67.67 C477.20 67.77 476.99 67.72 476.89 67.57 C476.79 67.36 476.84 67.16 476.99 67.06 L489.85 59.27 C490.05 59.16 490.25 59.21 490.36 59.37 C490.46 59.57 490.41 59.77 490.25 59.87 M490.25 72.78 L477.40 80.57 C477.20 80.68 476.99 80.62 476.89 80.47 C476.79 80.27 476.84 80.07 476.99 79.97 L489.85 72.17 C490.05 72.07 490.25 72.12 490.36 72.27 C490.46 72.48 490.41 72.68 490.25 72.78 M490.25 79.21 L477.35 87.05 C477.20 87.15 476.94 87.10 476.84 86.95 C476.74 86.80 476.79 86.55 476.94 86.45 L489.80 78.65 C489.95 78.55 490.20 78.60 490.31 78.75 C490.46 78.90 490.41 79.11 490.25 79.21 M476.94 73.54 L489.80 65.74 C489.95 65.64 490.20 65.69 490.31 65.84 C490.46 66.00 490.41 66.20 490.25 66.30 L477.35 74.15 C477.20 74.25 476.94 74.20 476.84 74.04 C476.74 73.89 476.79 73.64 476.94 73.54 M491.82 52.79 L476.84 61.80 C475.93 62.35 475.22 63.77 475.22 64.98 L475.22 94.59 C475.22 95.81 475.93 96.37 476.84 95.81 L491.82 86.80 C492.73 86.24 493.44 84.83 493.44 83.61 L493.44 54.00 C493.44 52.79 492.73 52.23 491.82 52.79" fill-rule="evenodd"/>
 <path d="M467.07 87.00 C465.91 87.96 464.34 87.81 462.37 86.60 C460.85 85.69 459.53 84.37 458.42 82.70 C457.30 81.03 456.75 79.51 456.65 78.14 C456.60 77.54 456.70 77.03 456.90 76.68 C457.10 76.32 457.41 76.32 457.86 76.57 C458.37 76.88 458.77 77.33 459.08 77.89 C459.38 78.45 459.53 78.95 459.53 79.41 C459.53 79.81 459.53 80.27 459.48 80.83 C459.43 81.38 459.38 81.74 459.33 81.99 C459.38 82.14 459.53 82.29 459.68 82.55 C459.84 82.80 460.04 83.05 460.29 83.31 C460.54 83.56 460.80 83.86 461.15 84.17 C461.51 84.47 461.86 84.77 462.32 85.03 C462.87 85.38 463.38 85.53 463.83 85.53 C464.29 85.53 464.69 85.28 465.00 84.88 C465.35 84.42 465.56 83.81 465.71 83.00 C465.86 82.24 465.86 81.18 465.81 79.81 C465.71 78.09 465.30 76.42 464.54 74.85 C463.78 73.29 462.87 72.17 461.76 71.46 C461.05 71.06 460.44 70.80 459.84 70.80 C459.28 70.80 458.77 71.11 458.32 71.67 L457.41 70.65 L457.76 57.95 L467.02 63.67 L467.23 66.96 L459.03 62.00 L458.77 69.44 C459.13 69.29 459.63 69.19 460.24 69.19 C460.85 69.19 461.56 69.44 462.32 69.89 C462.92 70.30 463.63 70.80 464.29 71.51 C465.05 72.27 465.66 73.08 466.26 74.09 C466.87 75.11 467.38 76.22 467.83 77.44 C468.29 78.70 468.54 80.07 468.59 81.59 C468.74 84.27 468.24 86.04 467.07 87.00 M469.76 61.59 L454.77 52.58 C453.86 52.03 453.15 52.58 453.15 53.80 L453.15 83.46 C453.15 84.67 453.86 86.09 454.77 86.65 L469.76 95.61 C470.67 96.16 471.38 95.61 471.38 94.39 L471.38 64.78 C471.38 63.57 470.67 62.15 469.76 61.59" fill-rule="evenodd"/>
 </g>
+<rect width="560" height="560" filter="url(#mottle)" opacity=".3" style="mix-blend-mode:soft-light"/>
+<rect width="560" height="560" filter="url(#grain)" opacity=".3" style="mix-blend-mode:overlay"/>
 </svg>

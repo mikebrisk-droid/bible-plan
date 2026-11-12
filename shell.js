@@ -80,7 +80,7 @@
 		// locked: read as published, so no Customize or Edit (52 weeks of five readings, from bible.plans.days)
 		{ id: 'fiveday', title: 'Five Day Bible Reading', blurb: 'The whole Bible in a year, five days a week.', art: 'fiveday.svg', tags: 'whole', locked: true,
 			params: { total: 364, order: 'list', books: 'fiveday', logic: 'chapters', daysofweek: '2,3,4,5,6' } },
-		{ id: 'psalmsezekiel', title: 'Psalms–Ezekiel Plan', blurb: 'Two readings a day: the Old Testament, with Psalms, Ezekiel and the New Testament beside it.', art: 'psalmsezekiel.svg', tags: 'whole', locked: true,
+		{ id: 'psalmsezekiel', title: 'Psalms–Ezekiel Plan', blurb: 'Two readings a day: the Old Testament, with Psalms, Ezekiel and the New Testament beside it.', art: 'psalmsezekiel', tags: 'whole', locked: true,
 			params: { total: 365, order: 'list', books: 'psalmsezekiel', logic: 'chapters' } },
 		{ id: 'redemptive', title: 'Redemptive-Historical Plan', blurb: 'The story of salvation in its key chapters, from Creation to the new creation.', art: 'redemptive', tags: 'whole', locked: true,
 			params: { total: 161, order: 'list', books: 'redemptive', logic: 'chapters' } },
