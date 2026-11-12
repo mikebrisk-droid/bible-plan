@@ -248,6 +248,7 @@
 		if (location.hash !== '#plan') location.hash = 'plan';
 		else renderPlanView();
 		toast(meta.toast || (adding && mine.list.length > 1 ? 'Plan added' : 'Plan started'), 'success', { description: entryName(state.active) });
+		syncStreaks(2000);
 	}
 
 	function switchPlan(id) {
@@ -465,7 +466,261 @@
 		var box = doc.getElementById(key);
 		if (box && box.checked) return box.click();
 		setRead(key, false);
+		streaks.markRead(key, false);
 		updateProgress(true);
+		syncStreaks();
+	}
+
+	/* ---------- Streaks & badges ----------
+	   The log, streak math and badge rules live in streaks.js; this part feeds it the followed plans,
+	   draws the Home chip, the streak sheet, the Badges view and badge sheet, and toasts new badges. */
+
+	var streaks = window.rtbStreaks.create();
+	streaks.setPlans(PLANS.map(function (p) { return { id: p.id, title: p.title, art: p.art, blurb: p.blurb }; }));
+
+	function streakPlans() {
+		return mine.list.map(function (e) {
+			var p = progress(ctxFor(e)), q = new URLSearchParams(e.query || '');
+			return { id: e.id, planId: e.planId || '', name: entryName(e), done: p.done, total: p.total,
+				weekdays: (q.get('daysofweek') || '1,2,3,4,5,6,7').split(',').filter(Boolean).map(function (n) { return n - 1; }) };
+		});
+	}
+
+	/* After anything that can earn a badge. Ding shows one toast at a time, so `wait` holds the badge
+	   news until the toast for the action itself (a reading, a copied link) has been seen. */
+	function syncStreaks(wait) {
+		var fresh = streaks.sync(streakPlans());
+		paintStreakChip(true);
+		if (state.view === 'badges') renderBadges();
+		if (fresh.length) setTimeout(function () { celebrate(fresh); }, wait || 0);
+	}
+
+	window.onReadingMarked = function (key, done) {
+		streaks.markRead(key, done);
+		syncStreaks();
+	};
+
+	function celebrate(list) {
+		var first = list[0], more = list.length - 1, backfill = list.every(function (b) { return b.backfilled; });
+		toast(backfill ? 'Your badges are here' : more ? list.length + ' badges earned' : 'Badge earned', 'success', {
+			description: backfill ? 'You’ve earned ' + list.length + ' from your reading so far' : first.label + (more ? ' and ' + more + ' more' : ''),
+			image: first.art ? COVER_SET + first.art + '.webp' : undefined,
+			action: { label: 'View', onClick: function () { if (backfill || more) location.hash = 'badges'; else openBadge(first.badge); } },
+			duration: 7000
+		});
+	}
+
+	function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+	function longDate(d) { return fmt(d, { month: 'long', day: 'numeric', year: 'numeric' }); }
+	function pctOf(n, of) { return of ? Math.max(0, Math.min(100, Math.round(n / of * 100))) : 0; }
+
+	function streakChipHtml() {
+		return '<button type="button" class="streak-chip" data-open-streaks>' + icon('flame') + '<span class="streak-num"></span></button>';
+	}
+
+	// Home chip: the reading streak, lit once today's reading is done
+	function paintStreakChip(animate) {
+		var chip = $q('.streak-chip');
+		if (!chip) return;
+		var r = streaks.stats().reading, num = $q('.streak-num', chip), before = num.textContent;
+		var wasLit = chip.classList.contains('is-lit');
+		num.textContent = r.current;
+		chip.classList.toggle('is-lit', r.readToday);
+		chip.setAttribute('aria-label', 'Reading streak: ' + plural(r.current, 'day', 'days') + '. Streaks and badges');
+		if (animate && motionOK && (String(r.current) !== before || r.readToday !== wasLit)) {
+			g.fromTo(chip, { scale: 0.86 }, { scale: 1, duration: 0.7, ease: 'elastic.out(1, 0.45)' });
+		}
+	}
+
+	function streakCard(label, n, best, kind, lit) {
+		return '<div class="streak-card"><span class="streak-label">' + label + '</span>' +
+			'<strong class="streak-big">' + n + '<span class="streak-icon' + (lit ? ' is-lit' : '') + '" data-kind="' + kind + '">' + icon(kind) + '</span></strong>' +
+			'<span class="streak-best">Best: ' + best + '</span></div>';
+	}
+
+	/* This week, Sunday to Saturday: a check for each reading day, joined by a band while the run holds
+	   (fading in from the left when it carried over from last week) */
+	function weekStripHtml(week, since) {
+		return '<ol class="week-strip' + (week.carried ? ' is-carried' : '') + '" aria-label="This week">' + week.map(function (d, i) {
+			// wk- prefixed: plain .is-today etc. already mean something in the plan layouts
+			var cls = ['wk'], said;
+			if (d.read) { cls.push('wk-read'); said = 'read'; }
+			else if (d.future) { cls.push('wk-future'); said = 'ahead'; }
+			else if (d.rest) { cls.push('wk-rest'); said = 'day off'; }
+			else if (d.today) said = 'not read yet';
+			else said = d.date < since ? 'before streaks began' : 'no reading';
+			if (d.today) cls.push('wk-today');
+			if (d.chain) cls.push('wk-chain');
+			if (d.chain && week[i + 1] && week[i + 1].chain) cls.push('wk-link');
+			return '<li class="' + cls.join(' ') + '" aria-label="' + esc(fmt(d.date, { weekday: 'long', month: 'short', day: 'numeric' }) + ': ' + said) + '">' +
+				'<span class="wk-day" aria-hidden="true">' + (d.read ? icon('check') : '') + '</span>' +
+				'<span class="wk-name" aria-hidden="true">' + fmt(d.date, { weekday: 'short' }) + '</span></li>';
+		}).join('') + '</ol>';
+	}
+
+	function renderStreakSheet() {
+		var s = streaks.stats(), r = s.reading, v = s.visit, note;
+		if (r.readToday) note = 'You read today. See you tomorrow.';
+		else if (r.restToday) note = 'Today is a day off in your plans, so your streak is safe.';
+		else if (r.current) note = 'Read today to keep your streak going.';
+		else note = 'Mark a reading as read to start a streak.';
+		$q('#streak-sheet-body').innerHTML =
+			'<h2 id="streak-sheet-title" class="streak-title">A little every day adds up.</h2>' +
+			'<div class="streak-cards">' + streakCard('Reading streak', r.current, r.best, 'flame', r.readToday) + streakCard('Visit streak', v.current, v.best, 'sun', true) + '</div>' +
+			'<p class="streak-note">' + note + '</p>' +
+			'<ul class="streak-facts"><li><strong>' + s.weeks + '</strong> ' + (s.weeks === 1 ? 'week' : 'weeks') + ' in a row</li>' +
+			'<li><strong>' + s.yearDays + '</strong> ' + (s.yearDays === 1 ? 'day' : 'days') + ' read in ' + s.year + '</li></ul>' +
+			weekStripHtml(s.week, s.since) +
+			'<a class="btn btn-primary btn-lg streak-cta" href="#badges" data-close-sheet>' + icon('award') + '<span>Your badges</span></a>' +
+			'<p class="streak-how">Counting since ' + longDate(s.since) + ' · <button type="button" class="link-btn" data-open-intro>How streaks work</button></p>';
+	}
+
+	/* ---------- First-time intro ----------
+	   Shown the first time someone opens their streaks or the Badges view; "How streaks work" brings it back. */
+
+	var INTRO_KEY = 'rtb-streaks-intro';
+	function introSeen() { try { return localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { return true; } }
+
+	function introHtml() {
+		var y = new Date().getFullYear(), stickers = [
+			stickerHtml(streaks.find('milestone:streak'), { locked: false, tier: 7 }),
+			stickerHtml(streaks.find('challenge:feb21'), { locked: false, year: y }),
+			stickerHtml(streaks.find('plan:year'), { locked: false })
+		];
+		var rows = [
+			['flame', 'Reading streak', 'Grows each day you mark a reading as read. Days off in your plans, like weekends on a weekday plan, don’t break it.'],
+			['sun', 'Visit streak', 'Grows each day you open the app, whether you read or not.'],
+			['award', 'Badges', 'Stickers for milestones, finished plans and yearly challenges like Lent and Advent.'],
+			['check', 'Just this browser', 'No account needed. Clearing this site’s data clears your streaks and badges too.']
+		];
+		return '<div class="intro-hero" aria-hidden="true">' + stickers.map(function (s, i) { return '<span class="intro-sticker" data-i="' + i + '">' + s + '</span>'; }).join('') + '</div>' +
+			'<h2 id="streak-intro-title" class="intro-title">Streaks &amp; badges</h2>' +
+			'<p class="intro-lede">Read a little each day and collect stickers along the way. Here’s how it counts:</p>' +
+			'<ul class="intro-list">' + rows.map(function (r) {
+				return '<li><span class="intro-icon" data-kind="' + r[0] + '">' + icon(r[0]) + '</span><span><strong>' + r[1] + '</strong><span>' + r[2] + '</span></span></li>';
+			}).join('') + '</ul>' +
+			'<button type="button" class="btn btn-primary btn-lg intro-done" data-intro-done>Got it</button>';
+	}
+
+	var introThen = null;
+	// then: what to open once it's dismissed (the streak sheet the person asked for)
+	function openIntro(then) {
+		introThen = then || null;
+		$q('#streak-intro-body').innerHTML = introHtml();
+		sheets.open($q('#streak-intro'));
+		if (motionOK) g.from($$('#streak-intro .intro-sticker'), { y: 24, rotate: 0, scale: 0.6, opacity: 0, duration: 0.8, stagger: 0.08, delay: 0.1, ease: 'back.out(1.8)', clearProps: 'transform,opacity' });
+		try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+	}
+
+	function openStreaks() {
+		if (!introSeen()) return openIntro(openStreaks);
+		renderStreakSheet();
+		sheets.open($q('#streak-sheet'));
+	}
+
+	/* ---------- Badges view ---------- */
+
+	// the badge's sticker (stickers.js): opts { size: 'sm' | 'lg', locked, tier, year }
+	function stickerHtml(b, opts) { return window.rtbStickers.html(b, opts); }
+
+	// the furthest-along plan being followed toward this plan badge, if any
+	function followingFor(b) {
+		var best = null;
+		mine.list.forEach(function (e) {
+			var match = b.id === 'custom' ? !planById(e.planId) : e.planId === b.id;
+			if (!match) return;
+			var p = progress(ctxFor(e));
+			if (p.total && p.done < p.total && (!best || p.pct > best.pct)) best = { entry: e, pct: p.pct, done: p.done, total: p.total };
+		});
+		return best;
+	}
+
+	/* What a tile adds under its sticker (which already carries the level or year):
+	   a count when a plan was finished more than once, and progress toward the next one */
+	function tileFacts(b) {
+		if (b.kind === 'milestone') return { chip: '', meter: b.next && b.value ? pctOf(b.value, b.next) : null };
+		if (b.kind === 'challenge') return { chip: '', meter: b.now.status === 'active' && b.now.count ? pctOf(b.now.count, b.now.goal) : null };
+		var f = followingFor(b);
+		return { chip: b.finishes.length > 1 ? b.finishes.length + '×' : '', meter: f ? f.pct : null };
+	}
+
+	function badgeTile(b) {
+		var f = tileFacts(b);
+		return '<button type="button" class="badge-tile' + (b.earned ? ' is-earned' : '') + '" data-badge="' + b.key + '" aria-label="' + esc(b.title + (b.earned ? ', earned' : ', not earned yet')) + '">' +
+			'<span class="badge-art">' + stickerHtml(b) + '</span>' +
+			'<span class="badge-name">' + esc(b.title) + (f.chip ? ' <span class="badge-count">' + f.chip + '</span>' : '') + '</span>' +
+			(f.meter != null ? '<span class="meter" aria-hidden="true"><span style="width:' + f.meter + '%"></span></span>' : '') + '</button>';
+	}
+
+	function renderBadges() {
+		var el = $q('#view-badges'), c = streaks.catalog(), s = streaks.stats();
+		var all = c.challenges.concat(c.milestones, c.plans), earned = all.filter(function (b) { return b.earned; }).length;
+		function section(title, list) {
+			return '<section class="section"><div class="section-head" data-anim><h2>' + title + '</h2></div>' +
+				'<div class="badge-grid">' + list.map(badgeTile).join('') + '</div></section>';
+		}
+		el.innerHTML = '<header class="view-head" data-anim><div><h1>Badges</h1><p class="muted">' + earned + ' of ' + all.length + ' earned</p></div></header>' +
+			'<button type="button" class="streak-strip" data-open-streaks data-anim>' +
+			'<span class="streak-pill"><span class="streak-icon' + (s.reading.readToday ? ' is-lit' : '') + '" data-kind="flame">' + icon('flame') + '</span><strong>' + s.reading.current + '</strong><span>Reading streak</span></span>' +
+			'<span class="streak-pill"><span class="streak-icon is-lit" data-kind="sun">' + icon('sun') + '</span><strong>' + s.visit.current + '</strong><span>Visit streak</span></span>' +
+			'<span class="streak-strip-go">' + icon('arrow') + '</span></button>' +
+			section('Challenges', c.challenges) + section('Milestones', c.milestones) + section('Plans', c.plans);
+	}
+
+	/* ---------- One badge ---------- */
+
+	function earnedOn(s) { var d = parseYmd(s); return d ? 'Earned ' + longDate(d) : 'Earned'; }
+
+	function badgeDetailHtml(b) {
+		var f = tileFacts(b), html = '', status = '', list = '';
+		if (b.kind === 'milestone') {
+			status = b.next
+				? '<div class="badge-status"><div class="badge-status-row"><strong>Next: ' + plural(b.next, b.unit[0], b.unit[1]) + '</strong><span>' + (b.next - b.value) + ' to go</span></div>' +
+					'<span class="meter"><span style="width:' + pctOf(b.value, b.next) + '%"></span></span></div>'
+				: '<div class="badge-status"><strong>Every level earned</strong></div>';
+			list = '<h3 class="badge-sub">Levels</h3><ol class="tier-list">' + b.tiers.slice().reverse().map(function (t) {
+				return '<li class="tier' + (t.on ? ' is-earned' : '') + '"><span class="tier-n">' + t.n + '</span><span>' +
+					(t.on ? earnedOn(t.on) : t.n === b.next ? (b.next - b.value) + ' to go' : 'Not yet') + '</span></li>';
+			}).join('') + '</ol>';
+		} else if (b.kind === 'challenge') {
+			var n = b.now, range = fmt(n.start, { month: 'long', day: 'numeric' }) + ' to ' + longDate(n.end);
+			if (n.status === 'earned') status = '<strong>' + earnedOn(n.earnedOn) + '</strong><span>' + n.count + ' of ' + n.total + ' days read</span>';
+			else if (n.status === 'upcoming') status = '<strong>Starts ' + longDate(n.start) + '</strong><span>' + range + '</span>';
+			else if (n.status === 'active') status = '<div class="badge-status-row"><strong>' + n.count + ' of ' + n.goal + ' days</strong><span>' + plural(n.left, 'day', 'days') + ' left</span></div>' +
+				'<span class="meter"><span style="width:' + pctOf(n.count, n.goal) + '%"></span></span>';
+			else status = '<strong>Out of reach this year</strong><span>' + n.count + ' of ' + n.goal + ' days, with ' + plural(n.left, 'day', 'days') + ' left</span>';
+			status = '<div class="badge-status">' + status + '</div>';
+			if (b.years.length) {
+				list = '<h3 class="badge-sub">Earned</h3><div class="year-stickers">' + b.years.map(function (y) {
+					return '<span class="year-sticker">' + stickerHtml(b, { size: 'sm', year: y, locked: false }) + '<span>' + y + '</span></span>';
+				}).join('') + '</div>';
+			}
+		} else {
+			var following = followingFor(b), plan = planById(b.id);
+			if (following) status = '<div class="badge-status"><div class="badge-status-row"><strong>' + following.pct + '% read</strong><span>' + following.done + ' of ' + following.total + ' readings</span></div>' +
+				'<span class="meter"><span style="width:' + following.pct + '%"></span></span></div>';
+			if (b.finishes.length) {
+				list = '<h3 class="badge-sub">Finished</h3><ol class="tier-list">' + b.finishes.map(function (x) {
+					var d = parseYmd(x.on);
+					return '<li class="tier is-earned"><span class="tier-n">' + icon('check') + '</span><span>' + (d ? longDate(d) : 'Before badges began') +
+						(b.id === 'custom' && x.name ? ' · ' + esc(x.name) : '') + '</span></li>';
+				}).join('') + '</ol>';
+			}
+			if (following) list += '<a class="btn btn-primary btn-lg badge-cta" href="#plan" data-switch-plan="' + following.entry.id + '" data-close-sheet>' + icon('myplan') + '<span>Go to plan</span></a>';
+			else if (plan) list += '<button type="button" class="btn btn-primary btn-lg badge-cta" data-badge-plan="' + plan.id + '">' + icon('book') + '<span>' + (b.earned ? 'Read it again' : 'Start this plan') + '</span></button>';
+			else list += '<a class="btn btn-primary btn-lg badge-cta" href="#create" data-new-plan>' + icon('create') + '<span>Build a plan</span></a>';
+		}
+		html = '<div class="badge-hero">' + stickerHtml(b, { size: 'lg' }) + '</div>' +
+			'<h2 id="badge-sheet-title">' + esc(b.title) + (f.chip ? ' <span class="badge-count">' + f.chip + '</span>' : '') + '</h2>' +
+			'<p class="badge-text">' + esc(b.text) + '</p>' + status + list;
+		return html;
+	}
+
+	function openBadge(key) {
+		var b = streaks.find(key);
+		if (!b) return;
+		$q('#badge-sheet-body').innerHTML = badgeDetailHtml(b);
+		sheets.open($q('#badge-sheet'));
 	}
 
 	/* ---------- Home ---------- */
@@ -561,7 +816,8 @@
 	function renderHome() {
 		var el = $q('#view-home'), html = '';
 		html += '<header class="greeting" data-anim><div><span class="eyebrow">' + fmt(new Date(), { weekday: 'long', month: 'long', day: 'numeric' }) + '</span><h1>' + greeting() + '</h1></div>' +
-			(state.active ? '<a class="btn greeting-action" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</header>';
+			'<div class="greeting-actions">' + streakChipHtml() +
+			(state.active ? '<a class="btn greeting-action" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</div></header>';
 
 		if (state.active) {
 			var cards = [state.active].concat(mine.list.filter(function (e) { return e !== state.active; })).map(todayCard);
@@ -578,6 +834,7 @@
 			'<div class="shelf">' + PLANS.slice(0, 5).map(planCard).join('') + '</div></section>';
 
 		el.innerHTML = html;
+		paintStreakChip(false);
 		fillEstimates(el);
 	}
 
@@ -1332,7 +1589,7 @@
 
 	/* ---------- Router ---------- */
 
-	var VIEWS = ['home', 'plans', 'create', 'plan'];
+	var VIEWS = ['home', 'plans', 'create', 'plan', 'badges'];
 
 	function routeFromHash() {
 		var h = location.hash.replace('#', '');
@@ -1398,6 +1655,7 @@
 		else if (view === 'plans') renderPlans();
 		else if (view === 'create') renderCreate();
 		else if (view === 'plan') renderPlanView();
+		else if (view === 'badges') renderBadges();
 	}
 
 	function show(view, instant) {
@@ -1409,7 +1667,7 @@
 		setAppMenu(false);
 		state.view = view;
 		doc.body.dataset.view = view;
-		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible' }[view];
+		doc.title = { home: 'Read the Bible', plans: 'Plans · Read the Bible', create: 'Create a plan · Read the Bible', plan: 'My plan · Read the Bible', badges: 'Badges · Read the Bible' }[view];
 		$$('.tabbar > .tab').forEach(function (t) {
 			if (t.dataset.tab === view) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
 		});
@@ -1423,11 +1681,12 @@
 			if (motionOK) {
 				g.fromTo($$('[data-anim]', next).filter(function (el) { return !el.closest('[hidden]'); }),
 					{ y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.06, ease: 'power3.out', clearProps: 'transform,opacity' });
-				var cards = $$('.plan-card:not([hidden]), .start-card, .plan-empty > *', next);
+				var cards = $$('.plan-card:not([hidden]), .start-card, .plan-empty > *, .badge-tile', next);
 				if (cards.length) g.fromTo(cards, { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, stagger: 0.05, delay: 0.12, ease: 'power3.out', clearProps: 'transform,opacity' });
 			}
 			if (view === 'home') $$('.ring', next).forEach(function (r) { animateRing(r); });
 			if (view === 'plan') animateOutput();
+			if (view === 'badges' && !introSeen()) setTimeout(function () { if (state.view === 'badges') openIntro(); }, 450);
 		}
 
 		if (prev && motionOK) {
@@ -1528,7 +1787,15 @@
 	function syncScrolled() { doc.documentElement.classList.toggle('is-scrolled', window.scrollY > 2); }
 
 	function bindEvents() {
-		window.addEventListener('hashchange', function () { show(routeFromHash() || 'home'); });
+		window.addEventListener('hashchange', function () {
+			// a link inside a sheet (a badge's "Go to plan") leaves the sheet behind
+			$$('.sheet[aria-hidden="false"]').forEach(function (s) { if (s.id !== 'reading-modal') sheets.close(s); });
+			show(routeFromHash() || 'home');
+		});
+		// a new day while the app stays open counts as a visit
+		doc.addEventListener('visibilitychange', function () {
+			if (doc.visibilityState === 'visible' && streaks.visit()) syncStreaks();
+		});
 		window.addEventListener('scroll', syncScrolled, { passive: true });
 		syncScrolled();
 
@@ -1568,6 +1835,18 @@
 			if ($q('.app-menu.is-open')) setAppMenu(false);
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
+			if (e.target.closest('[data-open-streaks]')) return openStreaks();
+			if (e.target.closest('[data-open-intro]')) return sheets.close($q('#streak-sheet'), function () { openIntro(); });
+			if (e.target.closest('[data-intro-done]')) {
+				var after = introThen;
+				introThen = null;
+				return sheets.close($q('#streak-intro'), after || undefined);
+			}
+			if ((t = e.target.closest('[data-badge]'))) return openBadge(t.dataset.badge);
+			if ((t = e.target.closest('[data-badge-plan]'))) {
+				var badgePlan = t.dataset.badgePlan;
+				return sheets.close($q('#badge-sheet'), function () { openPlanSheet(badgePlan); });
+			}
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
 			if ((t = e.target.closest('[data-close-sheet]'))) return sheets.close(t.closest('.sheet'));
 			if ((t = e.target.closest('[data-edit-plan]'))) {
@@ -1592,6 +1871,7 @@
 				var key = t.dataset.key, done = !isRead(key), card = t.closest('.today-card');
 				var ring = card && $q('.ring', card), before = ring ? +ring.dataset.pct : 0;
 				setRead(key, done);
+				streaks.markRead(key, done);
 				var box = doc.getElementById(key);
 				if (box) box.checked = done;
 				markCompleteWeeks(false);
@@ -1606,6 +1886,7 @@
 					var markEntry = card ? findPlan(card.dataset.planId) : state.active;
 					readingToast(ctxFor(markEntry), markEntry, key);
 				}
+				syncStreaks(done && settings.readingToasts ? 2200 : 0);
 				return;
 			}
 
@@ -1616,7 +1897,11 @@
 				if (kind === 'csv') { downloadcsv(); toast('Spreadsheet saved'); }
 				if (kind === 'link') {
 					var url = location.origin + location.pathname + (state.active ? state.active.query : '');
-					if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copied'); }, function () { toast('Could not copy the link', 'error', { duration: 5000 }); });
+					if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () {
+						toast('Link copied');
+						streaks.noteShare();
+						syncStreaks(2000);
+					}, function () { toast('Could not copy the link', 'error', { duration: 5000 }); });
 				}
 				sheets.close(sheet);
 				return;
@@ -1665,6 +1950,8 @@
 		$q('#output').addEventListener('change', function (e) {
 			if (!e.target.classList.contains('reading-check')) return;
 			if (e.target.checked && state.active) readingToast(ctxFor(), state.active, e.target.id);
+			streaks.markRead(e.target.id, e.target.checked);
+			syncStreaks(e.target.checked && settings.readingToasts ? 2200 : 0);
 			updateProgress(true);
 			markCompleteWeeks(true);
 			if (LIVE_FORMATS.indexOf(currentParams().get('format')) > -1) return refreshLiveLayout(e.target.id);
@@ -1795,7 +2082,12 @@
 			}));
 		}
 
+		// today's visit, plus anything earned since last time (or, the first time, from reading done before badges existed)
+		streaks.visit();
+		var earnedSince = streaks.sync(streakPlans());
+
 		show(routeFromHash() || (linked ? 'plan' : 'home'), true);
+		if (earnedSince.length) setTimeout(function () { celebrate(earnedSince); }, 1200);
 
 		if (motionOK) {
 			g.from('.brand', { y: -8, opacity: 0, duration: 0.6, ease: 'power3.out' });

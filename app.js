@@ -233,6 +233,8 @@ function initReadingModal() {
 			if (box.checked !== done) box.click();
 		} else {
 			setLocalStorage(readingKey, done ? 'true' : 'false');
+			// streaks.js still needs to hear about it (shell.js)
+			if (typeof window.onReadingMarked === 'function') window.onReadingMarked(readingKey, done);
 		}
 	});
 
