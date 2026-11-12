@@ -535,6 +535,8 @@ main {
 	position: relative;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
+	/* chips across the top, the reading across the card, the buttons with the progress ring bottom right */
+	grid-template-areas: "top top" "main main" "actions ring";
 	gap: 20px 24px;
 	--pad: clamp(22px, 4vw, 36px);
 	margin-top: 24px;
@@ -636,8 +638,9 @@ main {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px 12px;
-	grid-column: 1 / -1;
+	grid-area: top;
 }
+.today-main { grid-area: main; min-width: 0; }
 
 .chip {
 	display: inline-flex;
@@ -676,7 +679,15 @@ main {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px;
-	grid-column: 1 / -1;
+	grid-area: actions;
+	align-self: end;
+}
+.today-card .ring { grid-area: ring; align-self: end; }
+/* phones: a smaller ring, so the buttons beside it keep their room */
+@media (max-width: 480px) {
+	.today-card .ring { width: 76px; height: 76px; }
+	.today-card .ring-label { font-size: 18px; }
+	.today-card { column-gap: 14px; }
 }
 
 .today-card .btn-primary { background: #fff; color: #121214; }

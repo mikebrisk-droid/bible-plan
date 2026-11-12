@@ -946,7 +946,7 @@
 			(art ? ' style="--cover: url(\'' + art + '\')"' : '') + '>' +
 			'<div class="today-top">' + chip + '<a class="today-plan muted" ' + toPlan + '>' + esc(entryName(entry)) + '</a></div>' +
 			// a day-list plan names each day ("The Word Made Flesh") above its passage
-			'<div>' + (title ? '<p class="today-title">' + esc(title) + '</p>' : '') +
+			'<div class="today-main">' + (title ? '<p class="today-title">' + esc(title) + '</p>' : '') +
 			'<h2 class="today-ref' + (ref.multi ? ' is-multi' : '') + '">' + esc(ref.text || '') + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
 			ringHtml(progress(ctx).pct) +
 			'<div class="today-actions">' + actions + '</div></article>';
