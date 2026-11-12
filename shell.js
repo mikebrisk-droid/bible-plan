@@ -54,7 +54,7 @@
 
 	function durationLabel(total) {
 		total = +total;
-		if (total === 365 || total === 366) return '1 year';
+		if (total === 364 || total === 365 || total === 366) return '1 year';
 		if (total === 730) return '2 years';
 		if (total === 182 || total === 183) return '6 months';
 		return total + ' days';
@@ -77,6 +77,13 @@
 			params: { total: 365, order: 'traditional', books: 'OT,NT', logic: 'words' } },
 		{ id: 'chrono', title: 'Chronological Bible', blurb: 'The whole story, in the order it happened.', art: 'timeline', tags: 'whole',
 			params: { total: 365, order: 'chronological', books: 'OT,NT', logic: 'chapters' } },
+		// locked: read as published, so no Customize or Edit (52 weeks of five readings, from bible.plans.days)
+		{ id: 'fiveday', title: 'Five Day Bible Reading', blurb: 'The whole Bible in a year, five days a week.', art: 'fiveday.svg', tags: 'whole', locked: true,
+			params: { total: 364, order: 'list', books: 'fiveday', logic: 'chapters', daysofweek: '2,3,4,5,6' } },
+		{ id: 'psalmsezekiel', title: 'Psalms–Ezekiel Plan', blurb: 'Two readings a day: the Old Testament, with Psalms, Ezekiel and the New Testament beside it.', art: 'psalmsezekiel.svg', tags: 'whole', locked: true,
+			params: { total: 365, order: 'list', books: 'psalmsezekiel', logic: 'chapters' } },
+		{ id: 'redemptive', title: 'Redemptive-Historical Plan', blurb: 'The story of salvation in its key chapters, from Creation to the new creation.', art: 'redemptive', tags: 'whole', locked: true,
+			params: { total: 161, order: 'list', books: 'redemptive', logic: 'chapters' } },
 		{ id: 'mcheyne', title: 'M’Cheyne Plan', blurb: 'Four short readings a day from across Scripture.', art: 'four', tags: 'whole',
 			params: { total: 365, order: 'mcheyne', books: 'OT,NT', logic: 'chapters' } },
 		{ id: 'nt90', title: 'New Testament in 90 Days', blurb: 'Matthew to Revelation in three months.', art: 'cross', tags: 'nt',
@@ -87,6 +94,8 @@
 			params: { total: 60, order: 'traditional', books: 'MAT,MRK,LUK,JHN', logic: 'pericopes' } },
 		{ id: 'john', title: 'John in 40 Days', blurb: 'One Gospel, one story at a time.', art: 'rays', tags: 'nt',
 			params: { total: 40, order: 'traditional', books: 'JHN', logic: 'pericopes' } },
+		{ id: 'psalmaday', title: 'A Psalm a Day', blurb: 'All 150 psalms, one each day, in order.', art: 'psalmaday', tags: 'ot', locked: true,
+			params: { total: 150, order: 'list', books: 'psalmaday', logic: 'chapters' } },
 		{ id: 'psalms', title: 'Psalms & Proverbs', blurb: 'Songs and wisdom over two months.', art: 'waves', tags: 'ot',
 			params: { total: 60, order: 'traditional', books: 'PSA,PRO', logic: 'words' } },
 		{ id: 'otstory', title: 'Old Testament Story', blurb: 'The Old Testament in order, over six months.', art: 'mountain', tags: 'ot',
@@ -113,6 +122,12 @@
 	function listTitle(name) { var p = PLANS.filter(function (x) { return x.params.order === 'list' && x.params.books === name; })[0]; return p ? p.title : 'Reading list'; }
 	PLANS.forEach(function (p) { if (p.params.total <= 90) p.tags += ' short'; });
 	function planById(id) { return PLANS.filter(function (p) { return p.id === id; })[0]; }
+	/* A locked plan can't be customized or edited. Judged from the query, so a shared link to one stays locked. */
+	function isLockedQuery(query) {
+		var q = new URLSearchParams(query || '');
+		return q.get('order') === 'list' && PLANS.some(function (p) { return p.locked && p.params.books === q.get('books'); });
+	}
+	function isLockedEntry(e) { return !!e && isLockedQuery(e === state.active ? window.currentQuery || e.query : e.query); }
 
 	/* When a ready-made plan begins. Most start today; one tied to the calendar starts on its date: startOn
 	   'MM-DD', or 'easter' (timed to end on Easter Sunday). This year's while its run hasn't ended (joining
@@ -132,10 +147,12 @@
 
 	var FILTERS = [['all', 'All'], ['whole', 'Whole Bible'], ['ot', 'Old Testament'], ['nt', 'New Testament'], ['short', '3 months or less']];
 
-	/* Plan covers: one .webp per art key. Sets: assets/plans/ (glow), assets/plans-paper/ (paper cut) */
+	/* Plan covers: one .webp per art key, or a file named with its extension ('fiveday.svg').
+	   Sets: assets/plans/ (glow), assets/plans-paper/ (paper cut) */
 	var COVER_SET = 'assets/plans-paper/';
+	function coverUrl(art) { art = art || 'sun'; return COVER_SET + art + (art.indexOf('.') > -1 ? '' : '.webp'); }
 	function cover(art) {
-		return '<img src="' + COVER_SET + (art || 'sun') + '.webp" alt="" width="284" height="284" decoding="async">';
+		return '<img src="' + coverUrl(art) + '" alt="" width="284" height="284" decoding="async">';
 	}
 
 	/* ---------- Plan math (uses the engine directly, without touching the form) ---------- */
@@ -524,7 +541,7 @@
 		var first = list[0], more = list.length - 1, backfill = list.every(function (b) { return b.backfilled; });
 		toast(backfill ? 'Your badges are here' : more ? list.length + ' badges earned' : 'Badge earned', 'success', {
 			description: backfill ? 'You’ve earned ' + list.length + ' from your reading so far' : first.label + (more ? ' and ' + more + ' more' : ''),
-			image: first.art ? COVER_SET + first.art + '.webp' : undefined,
+			image: first.art ? coverUrl(first.art) : undefined,
 			action: { label: 'View', onClick: function () { if (backfill || more) location.hash = 'badges'; else openBadge(first.badge); } },
 			duration: 7000
 		});
@@ -904,7 +921,7 @@
 	   plan of one book, else none (the card keeps the abstract hero art) */
 	function planCoverUrl(entry) {
 		var p = planById(entry.planId);
-		if (p) return COVER_SET + p.art + '.webp';
+		if (p) return coverUrl(p.art);
 		var q = new URLSearchParams(entry.query || ''), books = (q.get('books') || '').split(',').filter(Boolean);
 		if (q.get('order') === 'traditional' && books.length === 1 && bible.BIBLE_DATA[books[0]]) return COVER_SET + 'fish.jpg';
 		return null;
@@ -1258,6 +1275,7 @@
 			if (behind > 0) note += ' You’ll start with ' + plural(behind, 'reading', 'readings') + ' to catch up.';
 		}
 		$q('#plan-sheet-note').textContent = note;
+		$q('#plan-sheet-customize').hidden = !!p.locked;
 		sheets.open(sheet);
 
 		setTimeout(function () {
@@ -1582,9 +1600,10 @@
 			return '<button type="button" class="start-card" data-create-mode="edit" data-edit-plan-id="' + e.id + '"><span class="start-icon">' + icon('edit') + '</span>' +
 				'<span class="start-text"><strong>' + esc(title) + '</strong><small>' + esc(sub) + '</small></span></button>';
 		}
+		var editable = mine.list.filter(function (e) { return !isLockedEntry(e); });
 		var edits = mine.list.length > 1
-			? mine.list.map(function (e) { return editCard(e, entryName(e), 'Edit · ' + durationLabel(new URLSearchParams(e.query).get('total'))); })
-			: [editCard(state.active, 'Edit Current Plan', planName())];
+			? editable.map(function (e) { return editCard(e, entryName(e), 'Edit · ' + durationLabel(new URLSearchParams(e.query).get('total'))); })
+			: editable.length ? [editCard(state.active, 'Edit Current Plan', planName())] : [];
 		return '<div class="builder create-choice"><div class="start-grid">' +
 			'<button type="button" class="start-card start-hero" data-create-mode="new"><span class="start-icon">' + icon('create') + '</span>' +
 			'<span class="start-text"><strong>Create a New Plan</strong><small>Start from scratch</small></span></button>' +
@@ -1870,6 +1889,7 @@
 		var p = currentParams(), days = planDays();
 		renderPlanSwitch();
 		$q('#plan-name').textContent = planName();
+		$q('#plan-actions [data-edit-plan]').hidden = isLockedEntry(state.active);
 		var sub = [];
 		if (days.length) {
 			var first = days[0].date, last = days[days.length - 1].date;
@@ -2240,6 +2260,7 @@
 			if ((t = e.target.closest('[data-open-sheet]'))) return sheets.open(doc.getElementById(t.dataset.openSheet));
 			if ((t = e.target.closest('[data-close-sheet]'))) return sheets.close(t.closest('.sheet'));
 			if ((t = e.target.closest('[data-edit-plan]'))) {
+				if (isLockedEntry(state.active)) { e.preventDefault(); return; }
 				builderFrom(currentParams());
 				if (state.active && state.active.name) B.name = state.active.name;
 				createMode = 'edit';

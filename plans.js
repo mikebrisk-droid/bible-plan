@@ -552,9 +552,26 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 
 // "GEN 2:7-9, 15-17; 3:1-15" -> [{usfm:'GEN', chapter:2, from:7, to:9}, {…2, 15, 17}, {…3, 1, 15}]
 // A part without a book or chapter carries on from the one before.
+// A segment that starts with a book and no "chapter:" lists whole chapters: "GEN 1-2", "PSA 56, 57, 142"
+// -> one {usfm, chapter, from:1, to:<last verse>, whole:true} per chapter.
 function parsePassages(text) {
 	var out = [], usfm = null, chapter = null;
 	String(text).split(';').forEach(function(segment) {
+		var whole = /^\s*[1-3A-Z][A-Z]{2}\s+[\d,\s-]+$/.test(segment) ? /^\s*([1-3A-Z][A-Z]{2})\s/.exec(segment)[1] : null;
+		if (whole) {
+			usfm = whole;
+			segment.replace(/^\s*\S+\s+/, '').split(',').forEach(function(part) {
+				var m = /^\s*(\d+)(?:-(\d+))?\s*$/.exec(part), book = bible.BIBLE_DATA[usfm];
+				if (!m) throw new Error('Unreadable chapters "' + part.trim() + '" in "' + text + '"');
+				var first = parseInt(m[1], 10), last = m[2] ? parseInt(m[2], 10) : first;
+				if (!book || last < first || last > book.chapters.length) throw new Error('No such chapters "' + part.trim() + '" in "' + text + '"');
+				for (chapter = first; chapter <= last; chapter++) {
+					out.push({ usfm: usfm, chapter: chapter, from: 1, to: book.chapters[chapter - 1], whole: true });
+				}
+			});
+			chapter = null;
+			return;
+		}
 		segment.split(',').forEach(function(part) {
 			var m = /^\s*(?:([1-3A-Z][A-Z]{2})\s+)?(?:(\d+):)?(\d+)(?:-(\d+))?\s*$/.exec(part);
 			if (!m) throw new Error('Unreadable passage "' + part.trim() + '" in "' + text + '"');
@@ -571,10 +588,24 @@ function parsePassages(text) {
 	return out;
 }
 
-// Passages as written, gaps kept: "Genesis 2:7–9, 15–17; 3:1–15", "Matthew 1:1, 6, 16–25"
+// Passages as written, gaps kept: "Genesis 2:7–9, 15–17; 3:1–15", "Matthew 1:1, 6, 16–25";
+// whole chapters as chapters: "Genesis 1–2; Psalms 56, 57, 142"
 function formatPassages(lang, passages, fullNames) {
 	var label = fullNames ? bible.getName : bible.getAbbr, out = '', prev = null;
 	passages.forEach(function(p) {
+		if (p.whole) {
+			var sameBook = prev && prev.whole && prev.usfm === p.usfm;
+			if (sameBook && p.chapter === prev.chapter + 1) {
+				// extend the run: "Genesis 1" -> "Genesis 1–2" -> "Genesis 1–3"
+				out = out.replace(/–\d+$/, '') + '–' + p.chapter;
+			} else {
+				var book = bible.BIBLE_DATA[p.usfm];
+				// a one-chapter book is just its name: "Obadiah", "2 John"
+				out += sameBook ? ', ' + p.chapter : (prev ? '; ' : '') + label(book, lang) + (book.chapters.length > 1 ? ' ' + p.chapter : '');
+			}
+			prev = p;
+			return;
+		}
 		var verses = p.from + (p.to !== p.from ? '–' + p.to : '');
 		if (prev && prev.usfm === p.usfm && prev.chapter === p.chapter) {
 			out += ', ' + verses;
@@ -618,7 +649,7 @@ function getDayListData(lang, startDate, numberOfDays, list, daysOfWeek, urlSite
 		var passages = [].concat.apply([], entries.map(function(e) { return e.passages; }));
 		dayInfo.title = entries.map(function(e) { return e.title; }).join(' · ');
 		dayInfo.passages = passages;
-		dayInfo.refs = passages.map(function(p) { return p.usfm + '.' + p.chapter + '.' + p.from + (p.to !== p.from ? '-' + p.to : ''); });
+		dayInfo.refs = passages.map(function(p) { return p.usfm + '.' + p.chapter + (p.whole ? '' : '.' + p.from + (p.to !== p.from ? '-' + p.to : '')); });
 		// the chapters it touches, for the Books layout, section colors and stats
 		dayInfo.chapters = chaptersFromPericopes(passages.map(function(p) {
 			return { start: p.usfm + '_' + p.chapter + '_' + p.from, end: p.usfm + '_' + p.chapter + '_' + p.to };
