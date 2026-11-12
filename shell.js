@@ -894,6 +894,11 @@
 			ref = next ? cardRef(next, entry) : '';
 			meta = next ? icon('calendar') + '<span>Next reading · ' + fmt(next.date, { weekday: 'long' }) + '</span>' : '';
 			actions = '<a class="btn btn-primary btn-lg" ' + toPlan + '>' + icon('myplan') + '<span>View plan</span></a>';
+		} else if (info.status === 'done' && info.behind > 0) {
+			// the dates are over but readings are left: say so, rather than "finished"
+			chip = '<span class="chip">Ended ' + fmt(days[days.length - 1].date) + '</span>';
+			ref = { text: plural(info.behind, 'reading', 'readings') + ' left' };
+			actions = '<a class="btn btn-primary btn-lg" ' + toPlan + '>' + icon('myplan') + '<span>Finish it</span></a>';
 		} else {
 			chip = '<span class="chip">Complete</span>';
 			ref = { text: 'You finished the plan.' };
@@ -927,8 +932,20 @@
 			(state.active ? '<a class="btn greeting-action" href="#create" data-new-plan aria-label="New plan">' + icon('create') + '<span>New plan</span></a>' : '') + '</div></header>';
 
 		if (state.active) {
-			var cards = [state.active].concat(mine.list.filter(function (e) { return e !== state.active; })).map(todayCard);
-			html += cards.length > 1 ? '<div class="today-grid">' + cards.join('') + '</div>' : cards[0];
+			// One card per plan: those with a reading today first (the current plan leading), then the rest
+			// (starting later, a rest day, finished). Three or more scroll sideways, with ‹ › underneath.
+			var order = [state.active].concat(mine.list.filter(function (e) { return e !== state.active; }));
+			var reading = order.filter(function (e) { return todayInfo(ctxFor(e)).status === 'today'; });
+			var shown = reading.concat(order.filter(function (e) { return reading.indexOf(e) < 0; }));
+			// each plan keeps its own hero art wherever its card lands
+			var cards = shown.map(function (e) { return todayCard(e, order.indexOf(e)); }), rail = cards.length > 2;
+			html += cards.length > 1 ? '<div class="today-grid' + (rail ? ' is-rail' : '') + '">' + cards.join('') + '</div>' : cards[0];
+			if (rail) {
+				html += '<div class="rail-foot" data-anim><span class="rail-count">' + plural(cards.length, 'plan', 'plans') +
+					(reading.length ? ' · ' + reading.length + ' to read today' : '') + '</span>' +
+					'<div class="rail-nav"><button type="button" class="icon-btn" data-rail="-1" aria-label="Previous plan" disabled>' + icon('back') + '</button>' +
+					'<button type="button" class="icon-btn" data-rail="1" aria-label="Next plan">' + icon('arrow') + '</button></div></div>';
+			}
 		} else {
 			html += '<section class="section"><div class="section-head" data-anim><h2>Start here</h2></div><div class="start-grid">' +
 				'<button type="button" class="start-card is-featured" data-plan="year"><span class="start-icon">' + icon('book') + '</span><span class="start-text"><strong>Bible in a Year</strong><small>The classic, one year</small></span></button>' +
@@ -942,7 +959,30 @@
 
 		el.innerHTML = html;
 		paintStreakChip(false);
+		bindRail();
 		fillEstimates(el);
+	}
+
+	/* The Home row of plan cards: ‹ › move one card; they grey out at either end */
+	function bindRail() {
+		var rail = $q('#view-home .today-grid.is-rail');
+		if (!rail) return;
+		function paint() {
+			var prev = $q('#view-home [data-rail="-1"]'), next = $q('#view-home [data-rail="1"]');
+			var atStart = rail.scrollLeft <= 2, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2;
+			if (prev) prev.disabled = atStart;
+			if (next) next.disabled = atEnd;
+			rail.classList.toggle('more-before', !atStart);
+			rail.classList.toggle('more-after', !atEnd);
+		}
+		rail.addEventListener('scroll', paint, { passive: true });
+		paint();
+	}
+
+	function stepRail(dir) {
+		var rail = $q('#view-home .today-grid.is-rail'), card = rail && rail.firstElementChild;
+		if (!card) return;
+		rail.scrollBy({ left: dir * (card.getBoundingClientRect().width + 14), behavior: motionOK ? 'smooth' : 'auto' });
 	}
 
 	/* ---------- Plans ---------- */
@@ -1966,6 +2006,7 @@
 				return sheets.close($q('#streak-intro'), after || undefined);
 			}
 			if ((t = e.target.closest('[data-badge]'))) return openBadge(t.dataset.badge);
+			if ((t = e.target.closest('[data-rail]'))) return stepRail(+t.dataset.rail);
 			if ((t = e.target.closest('[data-transfer]'))) return transferAction(t.dataset.transfer);
 			if (e.target.closest('[data-import-confirm]')) return confirmImport();
 			if ((t = e.target.closest('[data-badge-plan]'))) {
