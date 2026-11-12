@@ -104,12 +104,24 @@
 		{ id: 'easter', title: 'The Road to Easter', blurb: 'Forty days to the cross and the empty tomb.', art: 'tomb', tags: 'nt',
 			params: { total: 40, order: 'list', books: 'easter', logic: 'chapters' } },
 		{ id: 'christmas', title: 'The Road to Christmas', blurb: 'Twenty-five days from the first promise to the manger.', art: 'branch', tags: 'nt',
+			startOn: '12-01', startNote: 'so Day 25 lands on Christmas Day',
 			params: { total: 25, order: 'list', books: 'christmas', logic: 'chapters' } }
 	];
-	/* order 'list' plans read a fixed chapter list (bible.plans.lists); the builder names them by their plan */
+	/* order 'list' plans read a fixed chapter list (bible.plans.lists) or a day list (bible.plans.days);
+	   the builder names them by their plan */
 	function listTitle(name) { var p = PLANS.filter(function (x) { return x.params.order === 'list' && x.params.books === name; })[0]; return p ? p.title : 'Reading list'; }
 	PLANS.forEach(function (p) { if (p.params.total <= 90) p.tags += ' short'; });
 	function planById(id) { return PLANS.filter(function (p) { return p.id === id; })[0]; }
+
+	/* When a ready-made plan begins. Most start today; one tied to the calendar (startOn 'MM-DD') starts on
+	   that date: this year's while its run hasn't ended (joining late means catching up), else next year's. */
+	function planStart(p) {
+		var t = today();
+		if (!p || !p.startOn) return t;
+		var md = p.startOn.split('-'), start = new Date(t.getFullYear(), md[0] - 1, +md[1]);
+		if (t > start.addDays(p.params.total - 1)) start = new Date(t.getFullYear() + 1, md[0] - 1, +md[1]);
+		return start;
+	}
 
 	var FILTERS = [['all', 'All'], ['whole', 'Whole Bible'], ['ot', 'Old Testament'], ['nt', 'New Testament'], ['short', '3 months or less']];
 
@@ -862,7 +874,9 @@
 	function cardRef(day, entry) {
 		var lang = new URLSearchParams(entry && entry.query || window.currentQuery || '').get('lang') || 'en', full = '';
 		try {
-			full = day.pericopes && day.pericopes.length ? formatPericopeRange(lang, day.pericopes, false, '', '', true)
+			// a day-list plan (The Road to Christmas) has exact passages; pericope plans their stories; the rest chapters
+			full = day.passages ? formatPassages(lang, day.passages, true)
+				: day.pericopes && day.pericopes.length ? formatPericopeRange(lang, day.pericopes, false, '', '', true)
 				: formatChapterRange(lang, day.chapters, false, '', '', true);
 		} catch (err) { full = ''; }
 		// chapter plans range with a hyphen, passage plans with an en dash; the card always uses the dash
@@ -870,20 +884,21 @@
 		text = text.replace(/(\d)-(\d)/g, '$1–$2');
 		// several books: keep each "Book chapters" on one line, so lines only break after a semicolon
 		var multi = /;|–\D/.test(text);
-		// (or after the dash of a range into another book: "Matthew 4:12–Mark 1:20")
-		if (multi) text = text.split('; ').map(function (part) { return part.replace(/ /g, '\u00a0'); }).join('; ').replace(/–(?=\D)/g, '–\u200b');
+		// (or after the dash of a range into another book: "Matthew 4:12–Mark 1:20", or after the commas of a verse list: "Genesis 2:7–9, 15–17")
+		if (multi) text = text.split('; ').map(function (part) { return part.replace(/ /g, '\u00a0').replace(/,\u00a0/g, ', '); }).join('; ').replace(/–(?=\D)/g, '–\u200b');
 		return { text: text, multi: multi };
 	}
 
 	// each plan's card gets the next hero art in turn; six in all (see .today-card[data-art])
 	var HERO_ARTS = 6;
 	function todayCard(entry, index) {
-		var ctx = ctxFor(entry), info = todayInfo(ctx), days = ctx.days, chip, ref, meta = '', actions;
+		var ctx = ctxFor(entry), info = todayInfo(ctx), days = ctx.days, chip, ref, meta = '', actions, title = '';
 		var toPlan = 'href="#plan" data-switch-plan="' + entry.id + '"';
 		if (info.status === 'today') {
 			var day = days[info.index], key = ctx.key + '-' + info.index, done = isRead(key);
 			chip = '<span class="chip">Day ' + info.dayNumber + ' of ' + info.totalReadings + '</span>';
 			ref = cardRef(day, entry);
+			title = day.title || '';
 			meta = icon('clock') + '<span>' + minutesOf(day) + ' min read</span>';
 			actions = readingButton(day, 'btn btn-primary btn-lg', icon('book') + '<span>Read</span>', key) +
 				'<button type="button" class="btn btn-ghost btn-lg js-mark' + (done ? ' is-done' : '') + '" data-key="' + esc(key) + '">' +
@@ -892,6 +907,7 @@
 			var next = info.next != null ? days[info.next] : null;
 			chip = '<span class="chip">' + (info.status === 'rest' ? 'Rest day' : 'Starts ' + fmt(next ? next.date : new Date(), { weekday: 'short', month: 'short', day: 'numeric' })) + '</span>';
 			ref = next ? cardRef(next, entry) : '';
+			title = next && next.title || '';
 			meta = next ? icon('calendar') + '<span>Next reading · ' + fmt(next.date, { weekday: 'long' }) + '</span>' : '';
 			actions = '<a class="btn btn-primary btn-lg" ' + toPlan + '>' + icon('myplan') + '<span>View plan</span></a>';
 		} else if (info.status === 'done' && info.behind > 0) {
@@ -909,7 +925,9 @@
 		}
 		return '<article class="today-card" data-anim data-plan-id="' + entry.id + '" data-art="' + ((index || 0) % HERO_ARTS) + '">' +
 			'<div class="today-top">' + chip + '<a class="today-plan muted" ' + toPlan + '>' + esc(entryName(entry)) + '</a></div>' +
-			'<div><h2 class="today-ref' + (ref.multi ? ' is-multi' : '') + '">' + esc(ref.text || '') + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
+			// a day-list plan names each day ("The Word Made Flesh") above its passage
+			'<div>' + (title ? '<p class="today-title">' + esc(title) + '</p>' : '') +
+			'<h2 class="today-ref' + (ref.multi ? ' is-multi' : '') + '">' + esc(ref.text || '') + '</h2>' + (meta ? '<p class="today-meta muted">' + meta + '</p>' : '') + '</div>' +
 			ringHtml(progress(ctx).pct) +
 			'<div class="today-actions">' + actions + '</div></article>';
 	}
@@ -1040,8 +1058,14 @@
 			'<li data-fact="min">' + icon('clock') + '…</li>' +
 			'<li>' + icon('check') + daysLabel(p.params.daysofweek || BASE.daysofweek) + '</li>';
 		$q('#plan-sheet-first').innerHTML = '';
-		$q('#plan-sheet-start').textContent = isCurrent ? 'Continue plan' : 'Start today';
-		$q('#plan-sheet-note').textContent = '';
+		// a calendar plan says when it begins: "Start Dec 1", and why, below the buttons
+		var start = planStart(p), t = today(), ahead = start > t, behind = Math.round((t - start) / 864e5), note = '';
+		$q('#plan-sheet-start').textContent = isCurrent ? 'Continue plan' : ahead ? 'Start ' + fmt(start, { month: 'short', day: 'numeric' }) : 'Start today';
+		if (p.startOn && !isCurrent) {
+			note = (ahead ? 'Begins ' : 'Began ') + fmt(start, { weekday: 'long', month: 'long', day: 'numeric' }) + (p.startNote ? ', ' + p.startNote : '') + '.';
+			if (behind > 0) note += ' You’ll start with ' + plural(behind, 'reading', 'readings') + ' to catch up.';
+		}
+		$q('#plan-sheet-note').textContent = note;
 		sheets.open(sheet);
 
 		setTimeout(function () {
@@ -2080,7 +2104,7 @@
 					if (existing) { switchPlan(existing.id); location.hash = 'plan'; return; }
 					var params = {}, k;
 					for (k in plan.params) params[k] = plan.params[k];
-					params.start = ymd(today());
+					params.start = ymd(planStart(plan));
 					var display = displayPrefs();
 					display.urlsite = DEFAULT_SITE;
 					display.urlversion = DEFAULT_VERSION;
@@ -2092,7 +2116,8 @@
 			if (e.target.closest('#plan-sheet-customize') && sheetPlan) {
 				var p2 = sheetPlan;
 				sheets.close($q('#plan-sheet'), function () {
-					builderFrom(p2.params);
+					// the builder opens on the plan's own start (Dec 1 for The Road to Christmas)
+					builderFrom(Object.assign({}, p2.params, { start: ymd(planStart(p2)) }));
 					createMode = 'template';
 					if (location.hash === '#create') renderCreate(); else location.hash = 'create';
 				});

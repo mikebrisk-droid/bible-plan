@@ -45,7 +45,7 @@ function buildlist(lang, data, startDate, duration, bookList, dayList, showStats
 			</div>
 			<div class="date">${noDates ? '' : dayInfo.date.monthAbbr(lang) + ' ' + (dayInfo.date.getDate())}</div>
 			<div class="passage-cell">
-				${readingButton}
+				${readingButton}${dayInfo.title ? `<span class="passage-title">${escapeHtml(dayInfo.title)}</span>` : ''}
 			</div>
 			<div class="reading-meta">${formatReadingMeta(dayInfo)}</div>`);
 
@@ -179,6 +179,8 @@ function escapeAttr(value) {
 // One YouVersion passage id per chapter: "HEB.11" for a whole chapter, "HEB.13.20-25" for part of one.
 // (The API takes verse ranges only within a single chapter, so "Heb 11:1–12:3" is "HEB.11,HEB.12.1-3".)
 function getYouVersionRefs(dayInfo) {
+	// a day-list plan already knows its exact passages (plans.js getDayListData)
+	if (dayInfo.refs) return dayInfo.refs.join(',');
 	return dayInfo.chapters.map(function(chapter) {
 		var book = bible.BIBLE_DATA[chapter.usfm],
 			lastVerse = book && book.chapters[chapter.chapter - 1],

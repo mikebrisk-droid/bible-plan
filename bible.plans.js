@@ -204,9 +204,6 @@ bible.plans = {
         "easter": [
             "GEN_22","EXO_12","LEV_16","PSA_22","PSA_118","ISA_50","ISA_52","ISA_53","ZEC_9","ZEC_12","MAT_21","MAT_22","MAT_23","MAT_24","MAT_25","MAT_26","MAT_27","MAT_28","MRK_11","MRK_12","MRK_13","MRK_14","MRK_15","MRK_16","LUK_19","LUK_20","LUK_21","LUK_22","LUK_23","LUK_24","JHN_12","JHN_13","JHN_14","JHN_15","JHN_16","JHN_17","JHN_18","JHN_19","JHN_20","JHN_21"
         ],
-        "christmas": [
-            "GEN_3","GEN_12","GEN_49","NUM_24","2SA_7","PSA_2","PSA_110","ISA_7","ISA_9","ISA_11","ISA_40","ISA_42","ISA_60","ISA_61","JER_23","MIC_5","MAL_3","MAL_4","LUK_1","MAT_1","LUK_2","MAT_2","JHN_1","PHP_2","HEB_1"
-        ],
         "david": [
             "1SA_16","1SA_17","1SA_18","1SA_19","PSA_59","1SA_20","1SA_21","PSA_34","PSA_56","1SA_22","PSA_52","PSA_142","1SA_23","PSA_54","1SA_24","PSA_57","1SA_25","1SA_26","1SA_27","1SA_28","1SA_29","1SA_30","1SA_31","2SA_1","2SA_2","2SA_3","2SA_4","2SA_5","2SA_6","2SA_7","2SA_8","2SA_9","2SA_10","2SA_11","2SA_12","PSA_51","2SA_13","2SA_14","2SA_15","PSA_3","PSA_63","2SA_16","2SA_17","2SA_18","2SA_19","2SA_20","2SA_21","2SA_22","2SA_23","2SA_24","1KI_1","1KI_2"
         ],
@@ -215,6 +212,38 @@ bible.plans = {
         ],
         "endtimes": [
             "DAN_7","DAN_8","DAN_9","DAN_10","DAN_11","DAN_12","EZK_37","JOL_2","ZEC_14","ISA_65","ISA_66","MAT_24","MAT_25","MRK_13","LUK_21","JHN_14","1CO_15","1TH_4","1TH_5","2TH_1","2TH_2","2PE_3","REV_1","REV_2","REV_3","REV_4","REV_5","REV_6","REV_7","REV_8","REV_9","REV_10","REV_11","REV_12","REV_13","REV_14","REV_15","REV_16","REV_17","REV_18","REV_19","REV_20","REV_21","REV_22"
+        ]
+    },
+    /* Ready-made plans with a set reading for each day (order=list, books=<name>): [title, passages].
+       Passages are USFM book, chapter:verses; a part without a book or chapter carries on from the one
+       before ("GEN 2:7-9, 15-17; 3:1-15"). Read by getDayListData in plans.js. */
+    "days": {
+        "christmas": [
+            ["The Word Made Flesh", "JHN 1:1-18"],
+            ["The One Who Will Crush the Serpent", "GEN 2:7-9, 15-17; 3:1-15"],
+            ["The Serpent Defeated", "REV 12:7-11; 20:1-10"],
+            ["All Nations Will Be Blessed", "GEN 12:1-3; 18:17-18; 22:17-18"],
+            ["Blessing to Gentiles", "GAL 3:7-14; MAT 2:1-12"],
+            ["The Passover", "EXO 12:1-28"],
+            ["Jesus the Passover Lamb", "1CO 5:6-8; JHN 1:19-34"],
+            ["The Day of Atonement", "LEV 16:1-22"],
+            ["The Once-for-All Sacrifice for Sins (Part 1)", "HEB 9:1-28"],
+            ["The Once-for-All Sacrifice for Sins (Part 2)", "HEB 10:1-18"],
+            ["David’s Forever Kingdom", "2SA 7:1-17"],
+            ["David’s Son Announced", "LUK 1:26-56"],
+            ["The Reign of God’s Anointed", "PSA 2:1-12"],
+            ["The Victorious King", "REV 19:1-16"],
+            ["David’s Suffering", "PSA 22:1-18"],
+            ["Jesus’ Suffering", "MAT 27:24-54"],
+            ["The Child Promised", "ISA 7:14; 9:2-7; 11:1-5"],
+            ["The Child’s Coming", "MAT 1:1, 6, 16-25"],
+            ["The Suffering Servant", "ISA 53:1-12"],
+            ["It Is Finished", "JHN 19:30-42"],
+            ["The New Covenant", "JER 31:31-40; EZK 36:22-32"],
+            ["The Mediator of the New Covenant", "MAT 26:26-29; 1CO 11:23-26; HEB 8:6-12"],
+            ["Resurrection and Incarnation", "MAT 28:1-10; PHP 2:1-11"],
+            ["The Fullness of God in Him", "COL 1:15-20; HEB 1:1-3; 1JN 1:1-4"],
+            ["He’s Here!", "LUK 2:1-20"]
         ]
     }
 }

@@ -1,6 +1,11 @@
 
 function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek, dailyPsalm, dailyProverb, combineOTandNT, reverse, logic, includeUrls, urlSite, urlVersion) {
-	
+
+	// a ready-made plan with a set reading (and title) for each day
+	if (order == 'list' && bible.plans.days && bible.plans.days[bookList[0]]) {
+		return getDayListData(lang, startDate, numberOfDays, bible.plans.days[bookList[0]], daysOfWeek, urlSite, urlVersion);
+	}
+
 	var psalmNumber = 1;
 	var psalmMax = 150;
 	var proverbNumber = 1;
@@ -541,6 +546,95 @@ function getPlanData(lang, order, startDate, numberOfDays, bookList, daysOfWeek,
 	
 	
 	return data;	
+}
+
+/* ---------- Day lists: a set reading for each day (bible.plans.days) ---------- */
+
+// "GEN 2:7-9, 15-17; 3:1-15" -> [{usfm:'GEN', chapter:2, from:7, to:9}, {…2, 15, 17}, {…3, 1, 15}]
+// A part without a book or chapter carries on from the one before.
+function parsePassages(text) {
+	var out = [], usfm = null, chapter = null;
+	String(text).split(';').forEach(function(segment) {
+		segment.split(',').forEach(function(part) {
+			var m = /^\s*(?:([1-3A-Z][A-Z]{2})\s+)?(?:(\d+):)?(\d+)(?:-(\d+))?\s*$/.exec(part);
+			if (!m) throw new Error('Unreadable passage "' + part.trim() + '" in "' + text + '"');
+			if (m[1]) usfm = m[1];
+			if (m[2]) chapter = parseInt(m[2], 10);
+			var from = parseInt(m[3], 10), to = m[4] ? parseInt(m[4], 10) : from,
+				book = bible.BIBLE_DATA[usfm];
+			if (!book || !chapter || !book.chapters[chapter - 1] || to < from || to > book.chapters[chapter - 1]) {
+				throw new Error('No such passage "' + part.trim() + '" in "' + text + '"');
+			}
+			out.push({ usfm: usfm, chapter: chapter, from: from, to: to });
+		});
+	});
+	return out;
+}
+
+// Passages as written, gaps kept: "Genesis 2:7–9, 15–17; 3:1–15", "Matthew 1:1, 6, 16–25"
+function formatPassages(lang, passages, fullNames) {
+	var label = fullNames ? bible.getName : bible.getAbbr, out = '', prev = null;
+	passages.forEach(function(p) {
+		var verses = p.from + (p.to !== p.from ? '–' + p.to : '');
+		if (prev && prev.usfm === p.usfm && prev.chapter === p.chapter) {
+			out += ', ' + verses;
+		} else if (prev && prev.usfm === p.usfm) {
+			out += '; ' + p.chapter + ':' + verses;
+		} else {
+			out += (prev ? '; ' : '') + label(bible.BIBLE_DATA[p.usfm], lang) + ' ' + p.chapter + ':' + verses;
+		}
+		prev = p;
+	});
+	return out;
+}
+
+/* The same day shape getPlanData makes, plus dayInfo.title, .passages and .refs (exact YouVersion
+   references for the reader). Each reading day takes the next entry; if the plan has been given more
+   or fewer reading days than entries, they're spread out evenly. */
+function getDayListData(lang, startDate, numberOfDays, list, daysOfWeek, urlSite, urlVersion) {
+	var data = { startDate: startDate, numberOfDays: numberOfDays, bookList: [], dayList: daysOfWeek, readingDays: 0, days: [], chapterGroups: [] },
+		parsed = list.map(function(entry) { return { title: entry[0], passages: parsePassages(entry[1]) }; }),
+		date = startDate, readingIndex = 0, i;
+
+	for (i = 0; i < numberOfDays; i++) {
+		if (daysOfWeek.indexOf(startDate.addDays(i).getDay()) > -1) data.readingDays++;
+	}
+
+	for (var d = 1; d <= numberOfDays; d++) {
+		var dayInfo = {
+			day: d, date: date, chapterGroups: [],
+			formattedReading: '', formattedReadingUrls: '',
+			chapters: [], pericopes: [], wordsForToday: 0, versesForToday: 0, pericopesForToday: 0
+		};
+		data.days.push(dayInfo);
+		date = date.incrimentDay();
+		if (daysOfWeek.indexOf(dayInfo.date.getDay()) == -1) continue;
+
+		var R = data.readingDays, N = parsed.length,
+			entries = parsed.slice(Math.floor(readingIndex * N / R), Math.floor((readingIndex + 1) * N / R));
+		readingIndex++;
+		if (!entries.length) continue;
+
+		var passages = [].concat.apply([], entries.map(function(e) { return e.passages; }));
+		dayInfo.title = entries.map(function(e) { return e.title; }).join(' · ');
+		dayInfo.passages = passages;
+		dayInfo.refs = passages.map(function(p) { return p.usfm + '.' + p.chapter + '.' + p.from + (p.to !== p.from ? '-' + p.to : ''); });
+		// the chapters it touches, for the Books layout, section colors and stats
+		dayInfo.chapters = chaptersFromPericopes(passages.map(function(p) {
+			return { start: p.usfm + '_' + p.chapter + '_' + p.from, end: p.usfm + '_' + p.chapter + '_' + p.to };
+		}));
+		passages.forEach(function(p) {
+			var book = bible.BIBLE_DATA[p.usfm], verses = p.to - p.from + 1;
+			dayInfo.versesForToday += verses;
+			dayInfo.wordsForToday += book.words ? Math.round(book.words[p.chapter - 1] * verses / book.chapters[p.chapter - 1]) : verses * 26;
+		});
+
+		var text = formatPassages(lang, passages, false);
+		dayInfo.formattedReading = text;
+		dayInfo.formattedReadingUrls = '<a href="' + createUrl(text.replace(/–/g, '-'), passages[0].usfm, passages[0].chapter, urlSite, urlVersion) + '" target="_blank">' + text + '</a>';
+	}
+
+	return data;
 }
 
 // [{start:'LUK_1_39', end:'LUK_1_66'}, ...] -> [{usfm:'LUK', chapter:1, startVerse:39, endVerse:66}, ...]

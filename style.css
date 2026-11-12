@@ -630,6 +630,8 @@ main {
 }
 /* a day across several books ("Genesis 1; Matthew 1; Ezra 1; Acts 1") steps down a size */
 .today-ref.is-multi { font-size: clamp(24px, 3.4vw, 34px); line-height: 1.12; }
+/* the day's name in a day-list plan ("The Word Made Flesh"), above its passage */
+.today-title { margin-bottom: 8px; color: rgba(255, 255, 255, 0.72); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
 
 .today-meta {
 	display: flex;
@@ -1589,6 +1591,7 @@ main {
 .plan-list .entry .verses { grid-area: check; }
 .plan-list .entry .date { grid-area: date; }
 .plan-list .entry .passage-cell { grid-area: passage; }
+.plan-list .passage-title { display: block; margin-top: 1px; color: var(--ink-2); font-size: 13px; }
 .plan-list .entry .reading-meta { grid-area: meta; color: var(--ink-3); font-size: 12px; }
 #output:not(.plan-checkbox) .plan-list .entry { grid-template-columns: 52px minmax(0, 1fr); grid-template-areas: "date passage" "date meta"; }
 
