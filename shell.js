@@ -897,8 +897,18 @@
 		return { text: text, multi: multi };
 	}
 
-	// each plan's card gets the next hero art in turn; six in all (see .today-card[data-art])
+	// a plan without a cover gets the next hero art in turn; six in all (see .today-card[data-art])
 	var HERO_ARTS = 6;
+
+	/* The cover a plan's Home card fades in behind it: a ready-made plan's own, the Single book cover for a
+	   plan of one book, else none (the card keeps the abstract hero art) */
+	function planCoverUrl(entry) {
+		var p = planById(entry.planId);
+		if (p) return COVER_SET + p.art + '.webp';
+		var q = new URLSearchParams(entry.query || ''), books = (q.get('books') || '').split(',').filter(Boolean);
+		if (q.get('order') === 'traditional' && books.length === 1 && bible.BIBLE_DATA[books[0]]) return COVER_SET + 'fish.jpg';
+		return null;
+	}
 	function todayCard(entry, index) {
 		var ctx = ctxFor(entry), info = todayInfo(ctx), days = ctx.days, chip, ref, meta = '', actions, title = '';
 		var toPlan = 'href="#plan" data-switch-plan="' + entry.id + '"';
@@ -931,7 +941,9 @@
 		if (info.behind > 0 && info.status !== 'done') {
 			chip += '<a class="chip chip-accent" ' + toPlan + '>' + info.behind + ' to catch up</a>';
 		}
-		return '<article class="today-card" data-anim data-plan-id="' + entry.id + '" data-art="' + ((index || 0) % HERO_ARTS) + '">' +
+		var art = planCoverUrl(entry);
+		return '<article class="today-card' + (art ? ' has-cover' : '') + '" data-anim data-plan-id="' + entry.id + '" data-art="' + ((index || 0) % HERO_ARTS) + '"' +
+			(art ? ' style="--cover: url(\'' + art + '\')"' : '') + '>' +
 			'<div class="today-top">' + chip + '<a class="today-plan muted" ' + toPlan + '>' + esc(entryName(entry)) + '</a></div>' +
 			// a day-list plan names each day ("The Word Made Flesh") above its passage
 			'<div>' + (title ? '<p class="today-title">' + esc(title) + '</p>' : '') +
