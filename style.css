@@ -830,6 +830,43 @@ main {
 	line-height: 1.15;
 }
 .plan-card-body .meta { color: var(--ink-2); font-size: 13.5px; }
+/* Single book sheet (Plans): every book as a chip, then the pace */
+#book-sheet .sheet-body > p.muted .link-btn { display: inline; font-size: inherit; }
+#book-sheet .badge-sub { margin-top: 18px; }
+.book-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.book-chip {
+	height: 34px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--surface-2);
+	color: var(--ink);
+	font-size: 13.5px;
+	font-weight: 600;
+	transition: background-color .2s, color .2s;
+}
+.book-chip:hover { background: var(--primary); color: var(--primary-ink); }
+.pace-list { display: grid; gap: 8px; }
+.pace {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 52px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: var(--r-md);
+	background: var(--bg);
+	color: var(--ink);
+	text-align: left;
+	box-shadow: inset 0 0 0 1px var(--line);
+	transition: box-shadow .2s, background-color .2s;
+}
+.pace strong { font-weight: 650; }
+.pace small { color: var(--ink-2); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pace:hover { background: var(--surface-2); }
+.pace[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+
 /* why Home recommends it ("Starts Dec 1 · Day 25 is Christmas") */
 .plan-reason { margin-top: 4px; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.3; }
 .plan-reason::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 2px; }

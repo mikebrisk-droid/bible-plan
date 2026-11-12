@@ -59,6 +59,8 @@ Three layers, loaded between `gsap.min.js` and `shell.js`:
 - **Recommended for you:** rules in **`recommend.js`** (no DOM, Node-testable). It takes the catalog, followed and finished plans, and `planStart`, and returns up to five plans, each with a reason. Signals, roughly in this order: calendar plans in their run-up, the `NEXT` map after a finished or mostly-read plan, year-long plans around New Year, balancing a one-testament diet, then first plans for a new reader.
 - **Challenges & milestones** (`goalItems`): active or soon challenges, at most two levels earned in the last three days, then the milestones closest to their next level. Reading counts more than visits, starts or shares.
 
+The **Single book** card leads the Plans grid; it isn't in `PLANS`. Its sheet (`renderBookSheet`) works in two steps: pick any of the 66 books, then a pace from `bookPaces`. The paces are a chapter a day, section by section (`logic=pericopes`, counted from `bible.pericopes`), or a fixed 14, 30 or 90 days for longer books. Starting it makes a custom plan named after the book. Its cover is `assets/plans-paper/fish.jpg`, from the same cover set as the others, with 12px trimmed from each edge to remove white edge lines.
+
 Calendar plans set `startOn` in `PLANS` (`'12-01'`, or `'easter'` to end on Easter Sunday), and `planStart` gives the date for Start, Customize and the plan sheet.
 
 A reading streak counts days with at least one reading marked; weekdays that none of the followed plans read on are days off and don't break it. Readings checked before this existed are counted for totals but carry no date.

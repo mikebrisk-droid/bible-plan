@@ -1088,9 +1088,111 @@
 		el.innerHTML = '<header class="view-head" data-anim><h1>Plans</h1></header>' +
 			'<div class="chips" role="toolbar" aria-label="Filter plans" data-anim>' +
 			FILTERS.map(function (f) { return '<button type="button" class="filter" data-filter="' + f[0] + '" aria-pressed="' + (state.filter === f[0]) + '">' + f[1] + '</button>'; }).join('') +
-			'</div><div class="plan-grid">' + PLANS.map(planCard).join('') + '</div>';
+			'</div><div class="plan-grid">' + singleBookCard() + PLANS.map(planCard).join('') + '</div>';
 		applyFilter(state.filter, false);
 		fillEstimates(el);
+	}
+
+	/* ---------- Single book: a card on Plans that opens a sheet to pick any book, then a pace ---------- */
+
+	var bookPick = { usfm: null, pace: 'chapter' }, sectionCount = {};
+
+	function singleBookCard() {
+		return '<button type="button" class="plan-card" data-book-plan data-tags="ot nt short">' +
+			'<span class="cover"><img src="' + COVER_SET + 'fish.jpg" alt="" width="284" height="284" decoding="async"></span>' +
+			'<span class="plan-card-body"><strong>Single book</strong><span class="meta">Any book · your pace</span></span></button>';
+	}
+
+	// sections are the story breaks in bible.pericopes ("The Beginning", "The Fall"…)
+	function sectionsIn(usfm) {
+		if (!(usfm in sectionCount)) sectionCount[usfm] = bible.pericopes.filter(function (p) { return p.start.indexOf(usfm + '_') === 0; }).length;
+		return sectionCount[usfm];
+	}
+
+	// a chapter a day, a section a day, and (for longer books) a fixed span; no two with the same length
+	function bookPaces(usfm) {
+		var chapters = bible.BIBLE_DATA[usfm].chapters.length, out = [], seen = {};
+		function add(id, label, total, logic) {
+			if (total < 1 || seen[total]) return;
+			seen[total] = true;
+			out.push({ id: id, label: label, total: total, logic: logic });
+		}
+		add('chapter', 'A chapter a day', chapters, 'chapters');
+		add('section', 'Section by section', sectionsIn(usfm), 'pericopes');
+		if (chapters > 14) add('2w', 'In two weeks', 14, 'words');
+		if (chapters > 30) add('30', 'In 30 days', 30, 'words');
+		if (chapters > 90) add('90', 'In 90 days', 90, 'words');
+		return out;
+	}
+
+	function bookPace() {
+		var list = bookPick.usfm ? bookPaces(bookPick.usfm) : [];
+		return list.filter(function (p) { return p.id === bookPick.pace; })[0] || list[0] || null;
+	}
+
+	function renderBookSheet() {
+		var u = bookPick.usfm, body = $q('#book-sheet-body');
+		if (!u) {
+			var group = function (label, list) {
+				return '<h3 class="badge-sub">' + label + '</h3><div class="book-grid">' + list.map(function (b) {
+					return '<button type="button" class="book-chip" data-book-pick="' + b + '">' + esc(bookName(b)) + '</button>';
+				}).join('') + '</div>';
+			};
+			body.innerHTML = '<h2 id="book-sheet-title">Single book</h2><p class="muted">Pick any book of the Bible, then how fast to read it.</p>' +
+				group('Old Testament', bible.OT_BOOKS) + group('New Testament', bible.NT_BOOKS);
+			return;
+		}
+		var pace = bookPace(), stats = planStats({ total: pace.total, order: 'traditional', books: u, logic: pace.logic });
+		bookPick.pace = pace.id;
+		body.innerHTML = '<h2 id="book-sheet-title">' + esc(bookName(u)) + '</h2>' +
+			'<p class="muted">' + plural(bible.BIBLE_DATA[u].chapters.length, 'chapter', 'chapters') + ' · ' + plural(sectionsIn(u), 'section', 'sections') +
+			' · <button type="button" class="link-btn" data-book-change>Change book</button></p>' +
+			'<h3 class="badge-sub">Pace</h3><div class="pace-list" role="radiogroup" aria-label="Pace">' + bookPaces(u).map(function (p) {
+				return '<button type="button" class="pace" role="radio" data-pace="' + p.id + '" aria-checked="' + (p.id === pace.id) + '"><strong>' + p.label + '</strong><small>' + plural(p.total, 'day', 'days') + '</small></button>';
+			}).join('') + '</div>' +
+			'<ul class="facts"><li>' + icon('calendar') + 'Ends ' + fmt(today().addDays(pace.total - 1), { weekday: 'short', month: 'short', day: 'numeric' }) + '</li>' +
+			(stats ? '<li>' + icon('clock') + stats.minutes + ' min a day</li>' : '') + '</ul>' +
+			'<div class="sheet-actions"><button type="button" class="btn btn-primary btn-lg" data-book-start>Start today</button>' +
+			'<button type="button" class="btn btn-ghost btn-lg" data-book-customize>Customize</button></div>';
+	}
+
+	function openBookSheet() {
+		bookPick = { usfm: null, pace: 'chapter' };
+		renderBookSheet();
+		sheets.open($q('#book-sheet'));
+	}
+
+	// back to the top of the sheet whenever its step changes
+	function repaintBookSheet() {
+		renderBookSheet();
+		var panel = $q('#book-sheet .sheet-panel');
+		panel.scrollTo({ top: 0, behavior: motionOK ? 'smooth' : 'auto' });
+		if (motionOK) g.from($$('#book-sheet-body > *'), { y: 10, opacity: 0, duration: 0.35, stagger: 0.03, ease: 'power2.out', clearProps: 'transform,opacity' });
+	}
+
+	function bookParams() {
+		var pace = bookPace();
+		return { start: ymd(today()), total: pace.total, order: 'traditional', books: bookPick.usfm, logic: pace.logic, daysofweek: '1,2,3,4,5,6,7' };
+	}
+
+	function startBookPlan() {
+		var params = bookParams(), name = bookName(bookPick.usfm);
+		sheets.close($q('#book-sheet'), function () {
+			var display = displayPrefs();
+			display.urlsite = DEFAULT_SITE;
+			display.urlversion = DEFAULT_VERSION;
+			display.stats = '1';
+			startPlan(params, { name: name }, display);
+		});
+	}
+
+	function customizeBookPlan() {
+		var params = bookParams();
+		sheets.close($q('#book-sheet'), function () {
+			builderFrom(params);
+			createMode = 'template';
+			if (location.hash === '#create') renderCreate(); else location.hash = 'create';
+		});
 	}
 
 	function applyFilter(filter, animate) {
@@ -1246,7 +1348,8 @@
 		return d;
 	}
 
-	function bookName(usfm) { return bible.getName(bible.BIBLE_DATA[usfm], 'en'); }
+	// a book as a title ("Psalms"); bible.getName gives the reference form ("Psalm", as in "Psalm 23")
+	function bookName(usfm) { return usfm === 'PSA' ? 'Psalms' : bible.getName(bible.BIBLE_DATA[usfm], 'en'); }
 
 	function builderName() {
 		if (B.order === 'mcheyne') return 'M’Cheyne Plan';
@@ -2098,6 +2201,13 @@
 			if ($q('.plan-menu.is-open')) setPlanMenu(false);
 			if ($q('.layout-menu.is-open')) setLayoutMenu(false);
 			if ($q('.app-menu.is-open')) setAppMenu(false);
+			// Single book (Plans): the card, then pick a book, a pace, and start or customize
+			if (e.target.closest('[data-book-plan]')) return openBookSheet();
+			if ((t = e.target.closest('[data-book-pick]'))) { bookPick = { usfm: t.dataset.bookPick, pace: 'chapter' }; return repaintBookSheet(); }
+			if (e.target.closest('[data-book-change]')) { bookPick.usfm = null; return repaintBookSheet(); }
+			if ((t = e.target.closest('[data-pace]'))) { bookPick.pace = t.dataset.pace; return renderBookSheet(); }
+			if (e.target.closest('[data-book-start]')) return startBookPlan();
+			if (e.target.closest('[data-book-customize]')) return customizeBookPlan();
 			if ((t = e.target.closest('[data-plan]'))) return openPlanSheet(t.dataset.plan);
 			if ((t = e.target.closest('[data-filter]'))) return applyFilter(t.dataset.filter, true);
 			if (e.target.closest('[data-open-streaks]')) return openStreaks();

@@ -199,6 +199,16 @@
 	</section>
 </div>
 
+<!-- Single book: pick any book, then a pace (openBookSheet in shell.js) -->
+<div class="sheet" id="book-sheet" aria-hidden="true">
+	<div class="sheet-backdrop" data-close-sheet></div>
+	<section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="book-sheet-title">
+		<button type="button" class="icon-btn sheet-close" data-close-sheet aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+		<div class="sheet-cover"><img src="assets/plans-paper/fish.jpg" alt="" width="284" height="284"></div>
+		<div class="sheet-body" id="book-sheet-body"></div>
+	</section>
+</div>
+
 <!-- Display options -->
 <div class="sheet" id="display-sheet" aria-hidden="true">
 	<div class="sheet-backdrop" data-close-sheet></div>
