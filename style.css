@@ -2788,16 +2788,21 @@ html .tst-viewport[data-position^=top] .tst-slot { top: calc(var(--appbar-h) + e
 
 /* ---------- Streaks & badges (shell.js, streaks.js, stickers.js) ---------- */
 
-/* ☰ menu link */
+/* ☰ menu links (Streaks & badges, Move to another device) */
 .menu-link {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	width: 100%;
 	min-height: 44px;
 	padding: 0 6px;
+	border: 0;
 	border-radius: var(--r-sm);
+	background: none;
+	color: inherit;
 	font-size: 15px;
 	font-weight: 600;
+	text-align: left;
 	text-decoration: none;
 }
 .menu-link:hover { background: var(--surface-2); }
@@ -2924,6 +2929,20 @@ html .tst-viewport[data-position^=top] .tst-slot { top: calc(var(--appbar-h) + e
 .intro-icon[data-kind="flame"] { color: var(--streak); }
 .intro-icon[data-kind="sun"] { color: var(--accent); }
 .intro-done { width: 100%; }
+
+/* ---------- Move to another device (shell.js, transfer.js) ---------- */
+
+#transfer-sheet .badge-sub { margin-top: 22px; }
+#transfer-sheet .action-list { margin-top: 0; }
+.transfer-empty { margin-top: 18px; }
+.transfer-actions { display: flex; gap: 10px; }
+.transfer-actions .btn-primary { flex: 1; }
+.transfer-note { margin-top: 10px; }
+.import-list { display: grid; gap: 8px; margin: 18px 0 14px; padding: 0; list-style: none; }
+.import-list li { padding: 12px 14px; border-radius: var(--r-md); background: var(--bg); }
+.import-list strong { display: block; font-weight: 650; }
+.import-list small { display: block; color: var(--ink-2); font-size: 13px; }
+.import-note { margin-bottom: 18px; }
 
 /* Badges view */
 .streak-strip {

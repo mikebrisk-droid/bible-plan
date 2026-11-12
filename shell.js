@@ -723,6 +723,113 @@
 		sheets.open($q('#badge-sheet'));
 	}
 
+	/* ---------- Move to another device ----------
+	   transfer.js packs plans, checkmarks and the streak log into a link (#import=…) or a backup file,
+	   and merges one in. After a merge the page reloads, so every part starts again from storage. */
+
+	var transferLink = null, pendingImport = null, IMPORTED_KEY = 'rtb-imported';
+
+	// another sheet open (Save, the menu's) closes first
+	function swapSheet(id, then) {
+		var open = $q('.sheet[aria-hidden="false"]');
+		if (open && open.id !== id) { sheets.close(open, then); return true; }
+		return false;
+	}
+
+	function openTransfer() {
+		if (swapSheet('transfer-sheet', openTransfer)) return;
+		var payload = rtbTransfer.pack(localStorage, ymd(today())), s = rtbTransfer.summarize(payload), r = streaks.stats().reading;
+		var empty = !s.plans && !s.readings;
+		transferLink = null;
+		$q('#transfer-sheet-body').innerHTML =
+			'<h2 id="transfer-sheet-title">Move to another device</h2>' +
+			'<p class="muted">Bring your plans, checkmarks and streaks to another computer or browser. It’s a one-time copy, not a live sync.</p>' +
+			(empty
+				? '<div class="badge-status transfer-empty"><strong>Nothing to move yet</strong><span>Start a plan here first, or open a transfer link from your other device.</span></div>'
+				: '<ul class="facts"><li>' + icon('myplan') + plural(s.plans, 'plan', 'plans') + '</li><li>' + icon('check') + plural(s.readings, 'reading', 'readings') + ' done</li>' +
+					(r.current ? '<li>' + icon('flame') + r.current + '-day streak</li>' : '') + '</ul>' +
+					'<h3 class="badge-sub">Send a link</h3>' +
+					'<div class="transfer-actions"><button type="button" class="btn btn-primary btn-lg" data-transfer="copy" disabled>' + icon('transfer') + '<span>Copy transfer link</span></button>' +
+					(navigator.share ? '<button type="button" class="btn btn-ghost btn-lg" data-transfer="share" disabled>' + icon('share') + '<span>Share</span></button>' : '') + '</div>' +
+					'<p class="fine transfer-note">Open it on your other device, from email, Messages or AirDrop. Your reading travels inside the link itself and isn’t uploaded anywhere.</p>') +
+			'<h3 class="badge-sub">' + (empty ? 'Have a backup file?' : 'Or use a file') + '</h3>' +
+			'<div class="action-list">' +
+			(empty ? '' : '<button type="button" class="action" data-transfer="download">' + icon('download') + '<span><strong>Download backup</strong><small>A .json file with everything above</small></span></button>') +
+			'<button type="button" class="action" data-transfer="restore">' + icon('upload') + '<span><strong>Restore from a backup</strong><small>Added to what’s here; nothing is deleted</small></span></button></div>';
+		sheets.open($q('#transfer-sheet'));
+		if (empty) return;
+		rtbTransfer.toLink(payload, location.origin + location.pathname).then(function (link) {
+			transferLink = link;
+			$$('#transfer-sheet [data-transfer="copy"], #transfer-sheet [data-transfer="share"]').forEach(function (b) { b.disabled = false; });
+			if (link.length > 4000) $q('#transfer-sheet .transfer-note').textContent += ' It’s a long link: if an app cuts it short, send a backup file instead.';
+		});
+	}
+
+	function transferAction(kind) {
+		if (kind === 'copy' && transferLink) {
+			if (!navigator.clipboard) return toast('Could not copy the link', 'error', { description: 'Use Share or a backup file instead', duration: 5000 });
+			navigator.clipboard.writeText(transferLink).then(function () {
+				toast('Transfer link copied', 'success', { description: 'Open it on your other device' });
+			}, function () { toast('Could not copy the link', 'error', { duration: 5000 }); });
+		} else if (kind === 'share' && transferLink) {
+			navigator.share({ title: 'Read the Bible', text: 'My reading plans and progress', url: transferLink }).catch(function () {});
+		} else if (kind === 'download') {
+			saveData(rtbTransfer.toFile(rtbTransfer.pack(localStorage, ymd(today()))), 'read-the-bible-backup-' + ymd(today()) + '.json');
+			toast('Backup saved', 'success', { description: 'Restore it from this menu on your other device' });
+		} else if (kind === 'restore') {
+			$q('#restore-file').click();
+		}
+	}
+
+	function readImportLink(hash) {
+		rtbTransfer.fromLink(hash).then(function (p) { openImport(p, 'link'); }, function () {
+			toast('That transfer link didn’t come through whole', 'error', { description: 'Copy it again on your other device, or send a backup file', duration: 7000 });
+		});
+	}
+
+	function openImport(p, source) {
+		if (swapSheet('import-sheet', function () { openImport(p, source); })) return;
+		pendingImport = p;
+		var s = rtbTransfer.summarize(p), made = parseYmd(s.at);
+		var rows = s.list.map(function (e) {
+			var k = keyOf(e.query), here = mine.list.some(function (x) { return keyOf(x.query) === k; });
+			return '<li><strong>' + esc(e.name || 'Reading plan') + '</strong><small>' + plural(rtbTransfer.readCount(p, k), 'reading', 'readings') + ' done' +
+				(here ? ' · already on this device' : '') + '</small></li>';
+		}).join('');
+		$q('#import-sheet-body').innerHTML =
+			'<h2 id="import-sheet-title">Bring over your reading?</h2>' +
+			'<p class="muted">' + (source === 'file' ? 'From a backup file' : 'From a transfer link') + (made ? ' made ' + longDate(made) : '') + '.</p>' +
+			(rows ? '<ul class="import-list">' + rows + '</ul>' : '') +
+			'<p class="fine import-note">It’s added to what’s on this device, with your streaks and badges. Readings checked on either one stay checked, and nothing here is deleted.</p>' +
+			'<div class="sheet-actions"><button type="button" class="btn btn-primary btn-lg" data-import-confirm>Bring it over</button>' +
+			'<button type="button" class="btn btn-ghost btn-lg" data-close-sheet>Not now</button></div>';
+		sheets.open($q('#import-sheet'));
+	}
+
+	function confirmImport() {
+		if (!pendingImport) return;
+		var r;
+		try { r = rtbTransfer.apply(localStorage, pendingImport, { keyOf: keyOf, newId: newId }); }
+		catch (err) { return toast('Could not bring it over', 'error', { description: String(err && err.message || err), duration: 6000 }); }
+		pendingImport = null;
+		try { sessionStorage.setItem(IMPORTED_KEY, JSON.stringify(r)); } catch (e) {}
+		// plans, the engine and the streak log all load at boot, so start again from what's stored now
+		history.replaceState(null, '', location.pathname + '#home');
+		location.reload();
+	}
+
+	// after the reload that follows a merge
+	function importedToast() {
+		var r = null;
+		try { r = JSON.parse(sessionStorage.getItem(IMPORTED_KEY)); sessionStorage.removeItem(IMPORTED_KEY); } catch (e) {}
+		if (!r) return false;
+		var what = [r.plansAdded ? plural(r.plansAdded, 'plan', 'plans') : '', r.readingsAdded ? plural(r.readingsAdded, 'reading', 'readings') : ''].filter(Boolean).join(' and ');
+		setTimeout(function () {
+			toast(what ? 'Brought over' : 'Already up to date', 'success', { description: what || 'This device already had all of it', duration: 6000 });
+		}, 600);
+		return true;
+	}
+
 	/* ---------- Home ---------- */
 
 	function greeting() {
@@ -1788,9 +1895,24 @@
 
 	function bindEvents() {
 		window.addEventListener('hashchange', function () {
+			// a transfer link opened in a tab that already has the app: read it, keep the view
+			if (rtbTransfer.isLink(location.hash)) {
+				var link = location.hash;
+				history.replaceState(null, '', location.pathname + location.search + '#' + (state.view || 'home'));
+				return readImportLink(link);
+			}
 			// a link inside a sheet (a badge's "Go to plan") leaves the sheet behind
 			$$('.sheet[aria-hidden="false"]').forEach(function (s) { if (s.id !== 'reading-modal') sheets.close(s); });
 			show(routeFromHash() || 'home');
+		});
+		// Restore from a backup (Move to another device)
+		$q('#restore-file').addEventListener('change', function () {
+			var file = this.files && this.files[0];
+			this.value = '';
+			if (!file) return;
+			file.text().then(function (text) { openImport(rtbTransfer.fromFile(text), 'file'); }).catch(function () {
+				toast('That file isn’t a Read the Bible backup', 'error', { duration: 6000 });
+			});
 		});
 		// a new day while the app stays open counts as a visit
 		doc.addEventListener('visibilitychange', function () {
@@ -1804,6 +1926,7 @@
 			if (e.target.closest('.plan-more')) { setLayoutMenu(false); return setPlanMenu(!$q('.plan-menu').classList.contains('is-open')); }
 			if (e.target.closest('.menu-btn')) { setPlanMenu(false); setLayoutMenu(false); return setAppMenu(!$q('.app-menu').classList.contains('is-open')); }
 			if ((t = e.target.closest('[data-theme-choice]'))) { if (window.setThemeChoice) window.setThemeChoice(t.dataset.themeChoice); return; }
+			if (e.target.closest('[data-open-transfer]')) { setAppMenu(false); return openTransfer(); }
 			// clicks inside the menu panel (its switches) keep it open
 			if (e.target.closest('.app-menu-panel')) return;
 			if (e.target.closest('.layout-trigger')) { setPlanMenu(false); return setLayoutMenu(!$q('.layout-menu').classList.contains('is-open')); }
@@ -1843,6 +1966,8 @@
 				return sheets.close($q('#streak-intro'), after || undefined);
 			}
 			if ((t = e.target.closest('[data-badge]'))) return openBadge(t.dataset.badge);
+			if ((t = e.target.closest('[data-transfer]'))) return transferAction(t.dataset.transfer);
+			if (e.target.closest('[data-import-confirm]')) return confirmImport();
 			if ((t = e.target.closest('[data-badge-plan]'))) {
 				var badgePlan = t.dataset.badgePlan;
 				return sheets.close($q('#badge-sheet'), function () { openPlanSheet(badgePlan); });
@@ -2051,6 +2176,10 @@
 	}
 
 	function boot() {
+		// a transfer link: take its data out of the address bar (and history) before anything reads the hash
+		var importLink = rtbTransfer.isLink(location.hash) ? location.hash : null;
+		if (importLink) history.replaceState(null, '', location.pathname + location.search);
+
 		mountDisplayControls();
 		buildLens();
 		bindBackToTop();
@@ -2087,7 +2216,9 @@
 		var earnedSince = streaks.sync(streakPlans());
 
 		show(routeFromHash() || (linked ? 'plan' : 'home'), true);
-		if (earnedSince.length) setTimeout(function () { celebrate(earnedSince); }, 1200);
+		var justImported = importedToast();
+		if (earnedSince.length) setTimeout(function () { celebrate(earnedSince); }, justImported ? 3200 : 1200);
+		if (importLink) readImportLink(importLink);
 
 		if (motionOK) {
 			g.from('.brand', { y: -8, opacity: 0, duration: 0.6, ease: 'power3.out' });

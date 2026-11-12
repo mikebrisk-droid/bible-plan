@@ -366,5 +366,36 @@
 	// app.js progress keys: start|total|order|logic|days|books|psalm|proverb then -<day index>
 	function isProgressKey(key) { return typeof key === 'string' && key.split('|').length === 8 && /-\d+$/.test(key); }
 
-	return { create: create, ymd: ymd, parse: parse, addDays: addDays, easter: easter, MILESTONES: MILESTONES, CHALLENGES: CHALLENGES };
+	/* Two devices' logs as one (transfer.js). Nothing is dropped: every visit, reading, start, finish and badge
+	   from either side is kept, at its earliest date. '' (a date not known) gives way to a real one. */
+	function mergeActivity(a, b) {
+		var out = JSON.parse(JSON.stringify(a || {}));
+		b = b || {};
+		function earliest(x, y) { if (!x) return y || x || ''; if (!y) return x; return x < y ? x : y; }
+		function mergeDates(field) {
+			out[field] = out[field] || {};
+			for (var k in b[field] || {}) out[field][k] = k in out[field] ? earliest(out[field][k], b[field][k]) : b[field][k];
+		}
+		out.v = 1;
+		out.since = earliest(out.since, b.since);
+		var seen = {};
+		(out.visits || []).concat(b.visits || []).forEach(function (d) { seen[d] = true; });
+		out.visits = Object.keys(seen).sort();
+		mergeDates('marks');
+		mergeDates('started');
+		mergeDates('earned');
+		out.finished = out.finished || {};
+		for (var id in b.finished || {}) {
+			var mine = out.finished[id], theirs = b.finished[id];
+			if (!mine) out.finished[id] = theirs;
+			else mine.on = earliest(mine.on, theirs.on);
+		}
+		// a count, not a log, so the larger one (adding would count a link twice after a round trip)
+		out.shares = Math.max(out.shares || 0, b.shares || 0);
+		if (!out.readWeekdays) out.readWeekdays = b.readWeekdays || ALL_WEEK.slice();
+		return out;
+	}
+
+	return { create: create, ymd: ymd, parse: parse, addDays: addDays, easter: easter, isProgressKey: isProgressKey, mergeActivity: mergeActivity,
+		MILESTONES: MILESTONES, CHALLENGES: CHALLENGES };
 });
