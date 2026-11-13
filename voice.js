@@ -14,7 +14,9 @@
 	var modal = document.getElementById('reading-modal'),
 		content = document.getElementById('reading-modal-content'),
 		button = document.getElementById('reading-modal-voice');
-	if (!modal || !content || !button || !window.Worker || !(window.AudioContext || window.webkitAudioContext)) {
+	// Not on phones and tablets: the model download (92–326 MB) and the CPU it takes are too much there
+	var mobile = window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches;
+	if (mobile || !modal || !content || !button || !window.Worker || !(window.AudioContext || window.webkitAudioContext)) {
 		if (button) button.hidden = true;
 		return;
 	}
