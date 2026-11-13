@@ -1311,7 +1311,8 @@
 			checkbox: true, colors: true, dailypsalm: false, dailyproverb: false, otntoverlap: false, reverse: false,
 			nodates: false, stats: true, dailystats: false, includeurls: false,
 			urlsite: DEFAULT_SITE, urlversion: DEFAULT_VERSION,
-			name: '', customStart: false, customTotal: false
+			name: '', customStart: false, customTotal: false,
+			reached: 0 // the furthest step seen: chips up to it show their choice
 		};
 	}
 	resetBuilder();
@@ -1340,6 +1341,7 @@
 		['logic', 'format', 'lang', 'urlsite', 'urlversion'].forEach(function (k) { if (get(k)) B[k] = get(k); });
 		if (B.format === 'pdf' || HIDDEN_FORMATS.indexOf(B.format) > -1) B.format = 'calendar';
 		FLAGS.forEach(function (k) { if (get(k) != null) B[k] = get(k) === '1'; });
+		B.reached = LAST; // an existing plan or template has every choice made already
 	}
 
 	var CANON = [].concat(bible.OT_BOOKS, bible.DC_BOOKS, bible.NT_BOOKS);
@@ -1630,8 +1632,8 @@
 		if (state.active && !createMode) { el.innerHTML = chooserHtml(); return; }
 		if (!$q('.builder:not(.create-choice)', el)) {
 			el.innerHTML = '<div class="builder">' +
-				'<ol class="stepper" data-anim>' + STEPS.map(function (s, i) {
-					return '<li><button type="button" data-goto="' + i + '"><span class="bar"><span></span></span><span class="lbl">' + s.label + '</span></button></li>';
+				'<ol class="step-chips" aria-label="Your plan" data-anim>' + STEPS.map(function (s, i) {
+					return '<li><button type="button" class="step-chip" data-goto="' + i + '"><span class="chip-fill" aria-hidden="true"></span><span class="chip-text">' + s.label + '</span></button></li>';
 				}).join('') + '</ol>' +
 				'<section class="step" id="step-body" aria-live="polite"></section>' +
 				'<div class="builder-bar" data-anim><div class="summary"><strong id="sum-title"></strong><span id="sum-meta"></span></div>' +
@@ -1639,11 +1641,36 @@
 				'<button type="button" class="btn btn-primary btn-lg" id="step-next">Next</button></div></div>';
 		}
 		renderStep(0);
+		requestAnimationFrame(measureBuilder);
 	}
 
+	// where the builder starts on the page, for its min-height in style.css (.builder:not(.create-choice))
+	function measureBuilder() {
+		var b = $q('#view-create .builder:not(.create-choice)');
+		if (b && b.offsetParent) b.style.setProperty('--builder-top', Math.round(b.getBoundingClientRect().top + window.scrollY) + 'px');
+	}
+	window.addEventListener('resize', measureBuilder);
+
+	/* The steps take turns: the leaving step slides out and blurs while the next one slides in,
+	   and the step area eases to its new height. A step lives in its own .step-pane so the two can overlap. */
 	function renderStep(direction) {
-		var body = $q('#step-body');
-		body.innerHTML = stepHtml();
+		var body = $q('#step-body'), old = $q('.step-pane:not(.is-leaving)', body);
+		var animate = motionOK && direction && old;
+		var h0 = animate ? body.offsetHeight : 0;
+		var pane = doc.createElement('div');
+		pane.className = 'step-pane';
+		pane.innerHTML = stepHtml();
+		if (animate) {
+			// the leaving copy keeps no ids or choices, so lookups only ever find the new step
+			$$('[id]', old).forEach(function (el) { el.removeAttribute('id'); });
+			old.classList.add('is-leaving');
+			old.inert = true;
+			body.insertBefore(pane, old);
+			g.to(old, { x: -20 * direction, opacity: 0, filter: 'blur(5px)', duration: 0.16, ease: 'power2.in', onComplete: function () { old.remove(); } });
+		} else {
+			body.innerHTML = '';
+			body.appendChild(pane);
+		}
 		var lang = $q('#b-lang'), site = $q('#b-urlsite'), version = $q('#b-urlversion');
 		if (lang) lang.value = B.lang;
 		if (site) site.value = B.urlsite;
@@ -1651,24 +1678,113 @@
 
 		$q('#step-back').style.visibility = B.step === 0 ? 'hidden' : 'visible';
 		$q('#step-next').textContent = B.step < LAST ? 'Next' : createMode === 'edit' ? 'Save plan' : 'Create plan';
-		$$('.stepper button').forEach(function (b, i) {
-			if (i === B.step) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
-			var bar = $q('.bar span', b), w = i <= B.step ? '100%' : '0%';
-			if (motionOK) g.to(bar, { width: w, duration: 0.5, ease: 'power3.out' }); else bar.style.width = w;
-		});
-		if (motionOK && direction) {
-			g.fromTo(body, { x: 36 * direction, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: 'power3.out', clearProps: 'transform' });
-			g.from($$('.field, .rows, .field-label', body), { y: 14, opacity: 0, duration: 0.45, stagger: 0.05, delay: 0.08, ease: 'power2.out', clearProps: 'transform,opacity' });
+		paintChips();
+		if (animate) {
+			var h1 = body.offsetHeight;
+			g.killTweensOf(body);
+			if (h0 !== h1) {
+				body.classList.add('is-sizing');
+				g.fromTo(body, { height: h0 }, { height: h1, duration: 0.5, ease: 'back.out(0.6)', clearProps: 'height',
+					onComplete: function () { body.classList.remove('is-sizing'); } });
+			}
+			g.fromTo(pane, { x: 20 * direction, opacity: 0, filter: 'blur(5px)' },
+				{ x: 0, opacity: 1, filter: 'blur(0px)', duration: 0.38, ease: 'power3.out', clearProps: 'transform,opacity,filter' });
 		}
 		updateSummary();
 	}
 
+	/* ---------- Choice chips: what each step chose, in one row above the steps ----------
+	   A step's chip fills in once the reader has been past it. Leaving a step, its chosen option's
+	   dark shape flies up into the chip; tapping a chip flies the shape back down onto that option. */
+
+	function chipFilled(i) { return i !== B.step && i <= B.reached && i < LAST; }
+
+	function chipValue(i) {
+		if (i === 0) return durationLabel(B.total);
+		if (i === 1) return (LAYOUTS.filter(function (l) { return l[0] === B.format; })[0] || [0, 'Format'])[1];
+		if (i === 2) {
+			if (B.order === 'traditional') return B.scope === 'custom'
+				? B.books.length + (B.books.length === 1 ? ' book' : ' books')
+				: { whole: 'Whole Bible', OT: 'Old Testament', NT: 'New Testament' }[B.scope];
+			return (orderChoices().filter(function (o) { return o[0] === B.order; })[0] || [0, 'Books'])[1];
+		}
+		var label = daysLabel(B.days.slice().sort().join(','));
+		return label.indexOf(',') > -1 ? B.days.length + ' days a week' : label;
+	}
+
+	// the option a step's chip stands for (Books shows the scope for a traditional plan, else the order)
+	function chipSource(i) {
+		var pane = $q('.step-pane:not(.is-leaving)');
+		var sel = [
+			'[data-total][aria-pressed="true"], [data-custom="total"][aria-pressed="true"]',
+			'[data-format][aria-pressed="true"]',
+			(B.order === 'traditional' ? '[data-scope]' : '[data-order]') + '[aria-pressed="true"]',
+			'[data-days][aria-pressed="true"]'
+		][i];
+		return pane && sel ? $q(sel, pane) : null;
+	}
+
+	function paintChips() {
+		$$('.step-chip').forEach(function (b, i) {
+			var filled = chipFilled(i), text = filled ? chipValue(i) : STEPS[i].label;
+			b.classList.toggle('is-filled', filled);
+			b.classList.toggle('is-current', i === B.step);
+			if (i === B.step) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+			if (filled) b.setAttribute('aria-label', STEPS[i].label + ': ' + text + '. Change'); else b.removeAttribute('aria-label');
+			b.title = filled ? text : '';
+			$q('.chip-text', b).textContent = text;
+		});
+	}
+
+	// change a class without the element's own transitions replaying the change under a flying shape
+	function settleClass(el, cls, on) {
+		el.style.transition = 'none';
+		el.classList.toggle(cls, on);
+		void el.offsetWidth;
+		el.style.transition = '';
+	}
+
+	/* An empty dark shape that moves from one box to another. It is drawn in page coordinates,
+	   so the smooth scroll to the top that comes with a step change carries it along. */
+	function flyShape(from, fromRadius, to, toRadius, done) {
+		var x = window.scrollX, y = window.scrollY, ghost = doc.createElement('span');
+		ghost.className = 'fly-shape';
+		Object.assign(ghost.style, { left: from.left + x + 'px', top: from.top + y + 'px', width: from.width + 'px', height: from.height + 'px', borderRadius: fromRadius });
+		doc.body.appendChild(ghost);
+		g.to(ghost, { left: to.left + x, top: to.top + y, width: to.width, height: to.height, borderRadius: toRadius,
+			duration: 0.55, ease: 'back.out(1.15)', onComplete: function () { done(); ghost.remove(); } });
+	}
+
 	function goStep(n) {
 		if (n === B.step || n < 0 || n > LAST) return;
-		var dir = n > B.step ? 1 : -1;
+		var from = B.step, dir = n > from ? 1 : -1, chips = $$('.step-chip');
+		// measure both ends before anything re-renders
+		var up = motionOK && from < LAST ? chipSource(from) : null;
+		var upRect = up && up.getBoundingClientRect(), upRadius = up && getComputedStyle(up).borderRadius;
+		var down = motionOK && chipFilled(n) ? chips[n] : null;
+		var downRect = down && down.getBoundingClientRect();
+
 		B.step = n;
+		B.reached = Math.max(B.reached, n);
 		renderStep(dir);
 		window.scrollTo({ top: 0, behavior: motionOK ? 'smooth' : 'auto' });
+
+		if (up && chipFilled(from)) {
+			var chip = chips[from];
+			settleClass(chip, 'is-awaiting', true);
+			flyShape(upRect, upRadius, chip.getBoundingClientRect(), chip.offsetHeight / 2 + 'px', function () {
+				settleClass(chip, 'is-awaiting', false);
+				g.fromTo($q('.chip-text', chip), { opacity: 0, filter: 'blur(3px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.3, ease: 'power2.out', clearProps: 'opacity,filter' });
+			});
+		}
+		var target = down && chipSource(n);
+		if (target) {
+			// the new step is mid-slide, so aim for where it settles
+			var r = target.getBoundingClientRect(), dx = g.getProperty(target.closest('.step-pane'), 'x');
+			settleClass(target, 'is-landing', true);
+			flyShape(downRect, down.offsetHeight / 2 + 'px', { left: r.left - dx, top: r.top, width: r.width, height: r.height },
+				getComputedStyle(target).borderRadius, function () { settleClass(target, 'is-landing', false); });
+		}
 	}
 
 	function rerenderStep(revealSelector) {
@@ -1709,6 +1825,20 @@
 		}, 180);
 	}
 
+	// Create plan / Save plan: the label gives way to a check for a beat, then the plan opens
+	function finishBuilder(btn) {
+		function go() {
+			btn.style.minWidth = '';
+			startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null, replace: createMode === 'edit' }, builderDisplay());
+		}
+		if (!motionOK) return go();
+		btn.style.minWidth = btn.offsetWidth + 'px';
+		btn.disabled = true;
+		btn.innerHTML = '<span class="btn-done">' + icon('check') + '</span>';
+		g.fromTo($q('.btn-done', btn), { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(2.6)' });
+		setTimeout(go, 480);
+	}
+
 	function setPressed(selector, match) {
 		$$(selector, $q('#view-create')).forEach(function (el) { el.setAttribute('aria-pressed', String(match(el))); });
 	}
@@ -1724,7 +1854,7 @@
 			if (d.createMode) return chooseCreateMode(d.createMode, d.editPlanId);
 			if (t.id === 'step-next') {
 				if (B.step < LAST) goStep(B.step + 1);
-				else if (builderValid()) startPlan(builderParams(), { name: planTitle(), named: !!B.name.trim(), toast: createMode === 'edit' ? 'Plan updated' : null, replace: createMode === 'edit' }, builderDisplay());
+				else if (builderValid()) finishBuilder(t);
 				return;
 			}
 			if (t.id === 'step-back') return goStep(B.step - 1);

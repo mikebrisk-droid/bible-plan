@@ -969,9 +969,23 @@ main {
 /* ---------- Builder ---------- */
 
 .builder {
+	--bar-gap: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px);
 	max-width: 760px;
 	margin: 0 auto;
 }
+@media (min-width: 760px) {
+	.builder { --bar-gap: 20px; }
+}
+/* The bottom bar stays in one place on every step: the builder reaches at least to where the bar
+   sticks on a long step, so a short step leaves its bar there too. --builder-top is set by shell.js. */
+.builder:not(.create-choice) {
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - var(--builder-top, 140px) - var(--bar-gap));
+	min-height: calc(100dvh - var(--builder-top, 140px) - var(--bar-gap));
+}
+.builder:not(.create-choice) .builder-bar { margin-top: auto; }
+.builder:not(.create-choice) .step { margin-bottom: 28px; }
 .create-choice { max-width: none; padding-top: 8px; }
 
 /* "Create a New Plan": a full-width dark cover card, art on the right like .today-card */
@@ -1007,46 +1021,69 @@ main {
 	.start-hero::before { opacity: .75; }
 }
 
-.stepper {
+.step-chips {
 	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: 6px;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 4px;
 	margin: 8px 0 0;
-	padding: 0;
+	padding: 5px;
+	border-radius: 999px;
+	background: var(--surface-2);
 	list-style: none;
 }
-.stepper button {
+.step-chip {
+	position: relative;
 	display: grid;
-	gap: 8px;
+	place-items: center;
 	width: 100%;
-	padding: 4px 0;
+	height: 38px;
+	padding: 0 12px;
 	border: 0;
+	border-radius: 999px;
 	background: none;
 	color: var(--ink-3);
-	font-size: 12.5px;
+	font-size: 13px;
 	font-weight: 600;
-	text-align: left;
-	transition: color .2s var(--ease);
+	white-space: nowrap;
+	transition: color .2s var(--ease), scale .2s var(--ease);
 }
-.stepper button:hover,
-.stepper button[aria-current="step"] { color: var(--ink); }
-.stepper .bar {
-	display: block;
-	height: 4px;
-	border-radius: 4px;
-	background: var(--surface-3);
-	overflow: hidden;
-}
-.stepper .bar span {
-	display: block;
-	width: 0;
-	height: 100%;
+.step-chip:hover,
+.step-chip.is-current { color: var(--ink); }
+.step-chip.is-filled { color: var(--primary-ink); }
+.step-chip:active { scale: .97; }
+.step-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--ink); }
+/* the chosen option's shape, which flies in from the step (.fly-shape) */
+.chip-fill {
+	position: absolute;
+	inset: 0;
 	border-radius: inherit;
-	background: var(--ink);
+	background: var(--primary);
+	opacity: 0;
+	transition: opacity .2s var(--ease);
 }
+.step-chip.is-filled .chip-fill { opacity: 1; }
+.chip-text { position: relative; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.step-chip.is-awaiting .chip-fill,
+.step-chip.is-awaiting .chip-text { opacity: 0; }
 @media (max-width: 520px) {
-	.stepper .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	/* on phones each chip takes the room its words need, so a long choice doesn't get cut off */
+	.step-chips { display: flex; gap: 2px; padding: 4px; }
+	.step-chips li { flex: 1 1 auto; min-width: 0; }
+	.step-chip { height: 34px; padding: 0 6px; font-size: 12px; }
 }
+.fly-shape {
+	position: absolute;
+	z-index: 9;
+	background: var(--primary);
+	pointer-events: none;
+}
+/* an option the shape is flying back down to looks unchosen until it lands */
+.is-landing[aria-pressed="true"] {
+	background: var(--surface);
+	color: var(--ink-2);
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+.is-landing[aria-pressed="true"] .box-art small { color: var(--ink-3); opacity: 1; }
 
 .layout-grid {
 	display: grid;
@@ -1078,16 +1115,20 @@ main {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 }
-.layout-choice[aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
-.layout-choice[aria-pressed="true"] svg { stroke: var(--ink); }
+/* a chosen option fills in dark, like the pills and weekdays */
+.layout-choice[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); box-shadow: none; }
+.layout-choice[aria-pressed="true"] svg { stroke: currentColor; }
+.layout-choice[aria-pressed="true"] .box-art small { color: inherit; opacity: .65; }
 
 .step .field-label + .rows { margin-top: 0; }
-.step > .field-label { margin-top: 6px; }
+.step-pane > .field-label { margin-top: 6px; }
 .step .fine { margin-top: -6px; }
 
-.step {
-	padding: 28px 0 8px;
-}
+/* each step is a .step-pane; while one leaves it lies over the next (shell.js renderStep) */
+.step { position: relative; }
+.step.is-sizing { overflow: hidden; }
+.step-pane { padding: 28px 0 8px; }
+.step-pane.is-leaving { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
 .step h2 {
 	font-size: clamp(26px, 4vw, 34px);
 	margin-bottom: 22px;
@@ -1349,7 +1390,7 @@ main {
 
 .builder-bar {
 	position: sticky;
-	bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px);
+	bottom: var(--bar-gap);
 	z-index: 10;
 	display: flex;
 	align-items: center;
@@ -1359,9 +1400,6 @@ main {
 	border-radius: var(--r-lg);
 	background: var(--surface);
 	box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--line);
-}
-@media (min-width: 760px) {
-	.builder-bar { bottom: 20px; }
 }
 .summary { flex: 1; min-width: 0; }
 .summary strong {
@@ -1373,6 +1411,8 @@ main {
 }
 .summary span { color: var(--ink-2); font-size: 13px; }
 .builder-bar .btn-quiet { padding: 0 10px; }
+.btn-done { display: grid; place-items: center; }
+.btn-done .icon { width: 22px; height: 22px; stroke-width: 2.4; }
 
 @media (max-width: 520px) {
 	.builder-bar { padding-left: 14px; }
