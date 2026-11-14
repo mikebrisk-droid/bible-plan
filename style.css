@@ -2828,6 +2828,111 @@ html.ps-locked, html.ps-locked body { overflow: hidden; }
 @keyframes voice-wait { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .reading-voice[data-state="loading"] .v-listen { animation: none; } }
 
+/* The page behind the reader is blurred rather than only darkened */
+.reading-modal-backdrop {
+	background: color-mix(in srgb, var(--scrim) 60%, transparent);
+	-webkit-backdrop-filter: blur(14px) saturate(1.15);
+	backdrop-filter: blur(14px) saturate(1.15);
+}
+
+/* The book being read floats to the left of the sheet when there's room (shell.js "Reading book"):
+   cover art for its part of the Bible and its name, seen face on */
+.reading-book { display: none; }
+@media (min-width: 1200px) {
+	.reading-book:not([hidden]) {
+		display: block;
+		position: absolute;
+		z-index: 1;
+		top: calc(var(--book-top, max(24px, 4vh)) + 8px);
+		transition: top .4s var(--ease);
+		left: calc(50% - 360px - 20px - 184px);
+		width: 184px;
+		perspective: 900px;
+		animation: book-float 6s ease-in-out infinite alternate;
+	}
+	#reading-modal:has(.reading-modal-panel.is-wide) .reading-book { display: none; }
+}
+@keyframes book-float { from { translate: 0 0; } to { translate: 0 -8px; } }
+@media (prefers-reduced-motion: reduce) { .reading-book:not([hidden]) { animation: none; } }
+
+.reading-book-cover {
+	position: relative;
+	aspect-ratio: 5 / 7;
+	border-radius: 3px 8px 8px 3px;
+	background: #2a2a2e;
+	box-shadow: 0 30px 50px -12px rgba(17, 18, 22, 0.45), 0 10px 20px -6px rgba(17, 18, 22, 0.2);
+}
+.reading-book-cover img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: inherit;
+}
+/* spine crease on the left, shade under the title */
+.reading-book-cover::before,
+.reading-book-cover::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+}
+.reading-book-cover::before {
+	z-index: 1;
+	background:
+		linear-gradient(90deg, rgba(0, 0, 0, .32) 0, rgba(255, 255, 255, .2) 4px, rgba(0, 0, 0, .14) 8px, rgba(255, 255, 255, .06) 11px, transparent 18px),
+		linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .18) 42%, transparent 62%);
+}
+.reading-book-cover::after { z-index: 3; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.reading-book-title {
+	position: absolute;
+	z-index: 2;
+	top: 18px;
+	left: 24px;
+	right: 16px;
+	color: #fff;
+	font-family: Charter, 'Bitstream Charter', 'Charis SIL', 'Iowan Old Style', Georgia, serif;
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.08;
+	letter-spacing: -0.01em;
+	text-wrap: balance;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+.reading-book-nav {
+	position: absolute;
+	z-index: 4;
+	bottom: 12px;
+	left: 0;
+	right: 0;
+	display: flex;
+	justify-content: center;
+	gap: 18px;
+}
+.reading-book-nav[hidden] { display: none; }
+.reading-book-nav button {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, .28);
+	color: #fff;
+	cursor: pointer;
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+	transition: background .2s, opacity .2s;
+}
+.reading-book-nav button:hover { background: rgba(0, 0, 0, .45); }
+.reading-book-nav button[disabled] { opacity: .35; pointer-events: none; }
+.reading-book-nav .icon { width: 18px; height: 18px; }
+.reading-book-nav [data-book-step="-1"] .icon { transform: rotate(90deg); }
+.reading-book-nav [data-book-step="1"] .icon { transform: rotate(-90deg); }
+
 .reading-modal-panel { transition: max-width .4s var(--ease); }
 .reading-modal-panel.is-wide { max-width: min(1120px, 94vw); }
 .reading-modal-panel.is-wide .reading-passage { max-width: 54em; }

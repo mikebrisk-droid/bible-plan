@@ -69,6 +69,8 @@ A reading streak counts days with at least one reading marked; weekdays that non
 
 ### Passage reader
 
+The page behind the sheet is blurred (`.reading-modal-backdrop`). On screens 1200px and wider, the book being read floats to the left of the sheet (`.reading-book`, a `.sheet-aside` that `lampSheet` animates in and out with the sheet; shell.js "Reading book"). Its cover is plan art from `assets/plans-paper/` chosen by the book's `bible.SECTIONS` section (`BOOK_ART`, with a few books overridden in `BOOK_ART_OWN`) with the book's name set on it. A reading across several books turns to each as its passage scrolls into view, and the cover's arrows jump between them. It is hidden in the wide layout.
+
 `app.js` (`initReadingModal`) fetches `/api/youversion/passage?ref=...&version=...`. Two copies of the proxy exist and must be kept in sync: `api/youversion/passage.js` (Vercel function) and the handler in `server.mjs` (local). Both read `YVP_APP_KEY` or `VITE_YOUVERSION_APP_KEY`.
 
 ### Read aloud

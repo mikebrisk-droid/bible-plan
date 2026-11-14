@@ -415,13 +415,14 @@
 	var sheets = window.lampSheet = {
 		open: function (el) {
 			if (el.getAttribute('aria-hidden') === 'false') return;
-			var panel = $q('.sheet-panel', el), backdrop = $q('.sheet-backdrop', el), phone = window.innerWidth < 700;
+			var panel = $q('.sheet-panel', el), backdrop = $q('.sheet-backdrop', el), asides = $$('.sheet-aside', el), phone = window.innerWidth < 700;
 			el._returnFocus = doc.activeElement;
 			el.setAttribute('aria-hidden', 'false');
 			doc.body.classList.add('has-sheet');
 			if (motionOK) {
-				g.killTweensOf([panel, backdrop]);
+				g.killTweensOf([panel, backdrop].concat(asides));
 				g.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power1.out' });
+				if (asides.length) g.fromTo(asides, { x: -36, rotation: -5, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.8, delay: 0.12, ease: 'expo.out', clearProps: 'transform,opacity' });
 				if (phone) g.fromTo(panel, { yPercent: 100 }, { yPercent: 0, duration: 0.6, ease: 'expo.out' });
 				else g.fromTo(panel, { y: 28, scale: 0.97, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.45, ease: 'power3.out' });
 				g.from($$('.sheet-body > *', el), { y: 14, opacity: 0, duration: 0.45, stagger: 0.04, delay: 0.1, ease: 'power2.out', clearProps: 'transform,opacity' });
@@ -433,16 +434,17 @@
 		},
 		close: function (el, done) {
 			if (el.getAttribute('aria-hidden') !== 'false') { if (done) done(); return; }
-			var panel = $q('.sheet-panel', el), backdrop = $q('.sheet-backdrop', el), phone = window.innerWidth < 700;
+			var panel = $q('.sheet-panel', el), backdrop = $q('.sheet-backdrop', el), asides = $$('.sheet-aside', el), phone = window.innerWidth < 700;
 			function finish() {
 				el.setAttribute('aria-hidden', 'true');
-				if (g) g.set([panel, backdrop], { clearProps: 'all' });
+				if (g) g.set([panel, backdrop].concat(asides), { clearProps: 'all' });
 				if (!$q('.sheet[aria-hidden="false"]')) doc.body.classList.remove('has-sheet');
 				if (el._returnFocus && el._returnFocus.focus) el._returnFocus.focus({ preventScroll: true });
 				if (done) done();
 			}
 			if (!motionOK) return finish();
 			g.to(backdrop, { opacity: 0, duration: 0.25 });
+			if (asides.length) g.to(asides, { x: -20, opacity: 0, duration: 0.22, ease: 'power2.in' });
 			if (phone) g.to(panel, { yPercent: 100, duration: 0.35, ease: 'power3.in', onComplete: finish });
 			else g.to(panel, { y: 16, scale: 0.98, opacity: 0, duration: 0.22, ease: 'power2.in', onComplete: finish });
 		}
@@ -2252,6 +2254,101 @@
 		apply(false);
 	}
 
+	/* ---------- Reading book ---------- */
+
+	/* The book being read floats beside the reading sheet on wide screens. Its cover is plan art chosen
+	   for its part of the Bible (a few books get their own), with the book's name set on it. A reading
+	   that spans several books turns to each one as you scroll, and the arrows jump between them. */
+	var BOOK_ART = {
+		pentateuch: 'tablets', historical: 'crown', poetic: 'waves', major: 'scroll', minor: 'mountain',
+		gospel: 'cross', acts: 'flame', pauline: 'sun', pastoral: 'branch', general: 'rays', revelation: 'four'
+	};
+	var BOOK_ART_OWN = { GEN: 'seed', RUT: 'seed', PRO: 'branch', ECC: 'timeline', DAN: 'four', JON: 'waves' };
+
+	function bookArt(id) {
+		var b = bible.BIBLE_DATA[id];
+		return BOOK_ART_OWN[id] || (b && BOOK_ART[bible.SECTIONS[b.section]]) || 'dots';
+	}
+	function bookName(id) {
+		var b = bible.BIBLE_DATA[id];
+		return b && b.names && b.names.en ? b.names.en[0] : id;
+	}
+
+	function bindReadingBook() {
+		var modal = $q('#reading-modal'), aside = modal && $q('.reading-book', modal);
+		if (!aside) return;
+		var cover = $q('.reading-book-cover', aside), img = $q('img', aside), name = $q('.reading-book-title', aside),
+			nav = $q('.reading-book-nav', aside), panel = $q('.reading-modal-panel', modal), head = $q('.reading-head', modal);
+		var refBooks = [], books = [], shown = null, ticking = false, holdUntil = 0;
+
+		function paint(id) {
+			img.src = coverUrl(bookArt(id));
+			name.textContent = bookName(id);
+			var i = books.indexOf(id);
+			$q('[data-book-step="-1"]', nav).disabled = i <= 0;
+			$q('[data-book-step="1"]', nav).disabled = i >= books.length - 1;
+		}
+
+		// turn the book edge-on, change the cover, turn it back
+		function showBook(id, animate) {
+			if (!id || id === shown) return;
+			shown = id;
+			if (g) g.killTweensOf(cover);
+			if (!animate || !motionOK || !aside.offsetWidth) {
+				if (g) g.set(cover, { clearProps: 'transform' });
+				return paint(id);
+			}
+			g.to(cover, { rotationY: 90, duration: 0.18, ease: 'power2.in', onComplete: function () {
+				paint(shown);
+				g.fromTo(cover, { rotationY: -90 }, { rotationY: 0, duration: 0.5, ease: 'back.out(1.4)', clearProps: 'transform' });
+			} });
+		}
+
+		// the passage nearest the top of the sheet decides which book is showing
+		function spy() {
+			ticking = false;
+			// an arrow's smooth scroll passes other books on the way; don't flip through them
+			if (books.length < 2 || Date.now() < holdUntil || modal.getAttribute('aria-hidden') !== 'false') return;
+			var line = panel.getBoundingClientRect().top + panel.clientHeight * 0.35, at = 0;
+			$$('.reading-passage', panel).forEach(function (p, i) { if (p.getBoundingClientRect().top <= line) at = i; });
+			showBook(refBooks[Math.min(at, refBooks.length - 1)], true);
+		}
+
+		doc.addEventListener('click', function (e) {
+			var btn = e.target.closest('.reading-open');
+			if (!btn) return;
+			refBooks = (btn.getAttribute('data-reading-refs') || '').split(',').filter(Boolean).map(function (r) { return r.split('.')[0]; });
+			books = refBooks.filter(function (id, i) { return refBooks.indexOf(id) === i; });
+			shown = null;
+			aside.hidden = !books.length;
+			nav.hidden = books.length < 2;
+			if (books.length) showBook(books[0], false);
+		});
+
+		panel.addEventListener('scroll', function () {
+			if (!ticking) { ticking = true; requestAnimationFrame(spy); }
+		}, { passive: true });
+
+		// line the book up with the top of the sheet, which sits lower while a passage is loading or short
+		function place() { aside.style.setProperty('--book-top', panel.offsetTop + 'px'); }
+		if (window.ResizeObserver) new ResizeObserver(place).observe(panel);
+		window.addEventListener('resize', place);
+
+		nav.addEventListener('click', function (e) {
+			var step = e.target.closest('[data-book-step]');
+			if (!step) return;
+			var target = books[books.indexOf(shown) + Number(step.dataset.bookStep)];
+			if (!target) return;
+			var passage = $$('.reading-passage', panel)[refBooks.indexOf(target)];
+			showBook(target, true);
+			if (passage) {
+				holdUntil = Date.now() + 900;
+				var top = panel.scrollTop + passage.getBoundingClientRect().top - panel.getBoundingClientRect().top - head.offsetHeight - 12;
+				panel.scrollTo({ top: Math.max(0, top), behavior: motionOK ? 'smooth' : 'auto' });
+			}
+		});
+	}
+
 	/* ---------- Back to top ---------- */
 
 	function bindBackToTop() {
@@ -2601,6 +2698,7 @@
 		buildLens();
 		bindBackToTop();
 		bindReaderTools();
+		bindReadingBook();
 		bindBuilder();
 		bindEvents();
 

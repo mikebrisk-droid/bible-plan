@@ -299,6 +299,17 @@
 <!-- Reading -->
 <div class="sheet" id="reading-modal" aria-hidden="true">
 	<div class="sheet-backdrop reading-modal-backdrop" data-reading-close></div>
+	<!-- The book being read, floating beside the sheet on wide screens (shell.js "Reading book") -->
+	<div class="sheet-aside reading-book" hidden>
+		<div class="reading-book-cover">
+			<img alt="" width="284" height="284" decoding="async">
+			<span class="reading-book-title" aria-hidden="true"></span>
+			<div class="reading-book-nav" hidden>
+				<button type="button" data-book-step="-1" aria-label="Previous book"><svg class="icon"><use href="#i-chevron"/></svg></button>
+				<button type="button" data-book-step="1" aria-label="Next book"><svg class="icon"><use href="#i-chevron"/></svg></button>
+			</div>
+		</div>
+	</div>
 	<section class="sheet-panel sheet-panel-lg reading-modal-panel" role="dialog" aria-modal="true" aria-labelledby="reading-modal-title">
 		<header class="reading-head">
 			<input type="checkbox" class="reading-check" id="reading-modal-check" aria-label="Mark as read" hidden />
